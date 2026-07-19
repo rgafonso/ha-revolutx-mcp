@@ -36,10 +36,14 @@
   text (copyrighted, and not reproducible from this research pass anyway).
 - Added `tests/test_backtest.py` — the repo's first automated tests, scoped to
   the grid-backtest engine's pure math (the one piece of this release with no
-  live system to sanity-check against). Everything else continues to be
-  verified via `py_compile` + an import smoke test, per this project's
-  established pattern; live confirmation against a real Revolut X account +
-  Claude connection is still pending for the trading tools specifically.
+  live system to sanity-check against). All 16 non-order-write tools (14
+  pre-existing + `list_kb_articles`/`search_kb`, plus `grid_backtest`/
+  `grid_optimize`) were confirmed working end-to-end against a live Revolut X
+  account through Claude; `get_order`/`get_order_fills` couldn't be exercised
+  since the test account has no order history, but every other call
+  succeeded. Live confirmation of the 4 order-write tools (`place_order`,
+  `replace_order`, `cancel_order`, `cancel_all_orders`) is still pending —
+  the trading toggle has been enabled but no write call has been made yet.
 
 ## 0.3.2
 
