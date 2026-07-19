@@ -48,7 +48,7 @@ curl -X POST http://localhost:5000/rpc \
 
 ## Multi-Architecture Builds
 
-The `addon.yaml` specifies:
+The `config.yaml` specifies:
 - `aarch64` (ARM 64-bit for NAS, Raspberry Pi 4+)
 - `amd64` (Intel/AMD x86_64)
 - `armv7` (ARM 32-bit for older RPi)
@@ -71,7 +71,7 @@ Use GitHub Actions with `build/qemu-action` for cross-platform builds:
 - Ensure `/app/mcp/dist/index.js` exists after build
 
 **Problem: HTTP timeout**
-- Increase timeout in `mcp-network-transport.js` if Revolut API is slow
+- Increase timeout in `mcp-network-transport.cjs` if Revolut API is slow
 - Check MCP server is responding on subprocess
 
 **Problem: Credential issues**

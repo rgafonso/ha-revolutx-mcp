@@ -43,7 +43,7 @@ echo "[INFO] Starting Revolut X MCP server on port $PORT..."
 cd /app
 
 # Run the network-transport wrapper
-node /app/mcp-network-transport.js
+node /app/mcp-network-transport.cjs
 
 # Fallback if wrapper fails
 exit 1

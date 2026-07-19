@@ -8,11 +8,13 @@ ha-revolutx-mcp/
 │   └── workflows/
 │       └── build.yml                 # GitHub Actions for multi-arch Docker builds
 ├── .gitignore                         # Git exclusions
-├── addon.yaml                         # Home Assistant addon metadata & config schema
-├── Dockerfile                         # Multi-arch Docker build (amd64, arm64, armv7)
+├── repository.yaml                    # Identifies this repo as a HA add-on repository
+├── config.yaml                        # Home Assistant addon metadata & config schema
+├── Dockerfile                         # Multi-arch Docker build (aarch64, amd64, armv7)
 ├── entrypoint.sh                      # Addon startup script with credential handling
-├── mcp-network-transport.js           # HTTP wrapper for network MCP (stdio ↔ HTTP)
+├── mcp-network-transport.cjs           # HTTP wrapper for network MCP (stdio ↔ HTTP)
 ├── LICENSE                            # MIT license
+├── CHANGELOG.md                       # Version history shown in the HA add-on store
 ├── README.md                          # User installation & usage guide
 ├── SETUP.md                           # Complete step-by-step deployment walkthrough
 └── DEVELOPMENT.md                     # Dev guide for local testing & publishing
@@ -24,10 +26,11 @@ ha-revolutx-mcp/
 
 | File | Purpose | Notes |
 |------|---------|-------|
-| `addon.yaml` | Defines the addon for Home Assistant | Metadata, ports, config schema, image paths |
-| `Dockerfile` | Builds the container image | Clones revolut-x-api, builds MCP server, multi-arch support |
+| `repository.yaml` | Identifies this repo as a HA add-on repository | Required for the add-on store to show a proper name/maintainer |
+| `config.yaml` | Defines the addon for Home Assistant | Metadata, ports, config schema, image paths |
+| `Dockerfile` | Builds the container image | Clones revolut-x-api (pinned tag), builds MCP server, multi-arch support |
 | `entrypoint.sh` | Runs when container starts | Sets up credentials, starts services, handles logs |
-| `mcp-network-transport.js` | Bridges MCP stdio → HTTP | Spawns MCP process, exposes `/rpc` and `/health` endpoints |
+| `mcp-network-transport.cjs` | Bridges MCP stdio → HTTP | Spawns MCP process, exposes `/rpc` and `/health` endpoints |
 
 ### Documentation
 
@@ -56,10 +59,12 @@ All files are in `/mnt/user-data/outputs`. Copy them to your local repo:
 ```bash
 # From your ha-revolutx-mcp directory
 cp -v ~/Downloads/Dockerfile .
-cp -v ~/Downloads/addon.yaml .
+cp -v ~/Downloads/config.yaml .
+cp -v ~/Downloads/repository.yaml .
 cp -v ~/Downloads/entrypoint.sh .
-cp -v ~/Downloads/mcp-network-transport.js .
+cp -v ~/Downloads/mcp-network-transport.cjs .
 cp -v ~/Downloads/LICENSE .
+cp -v ~/Downloads/CHANGELOG.md .
 cp -v ~/Downloads/.gitignore .
 cp -v ~/Downloads/README.md .
 cp -v ~/Downloads/SETUP.md .
@@ -70,7 +75,7 @@ cp -v ~/Downloads/build.yml .github/workflows/
 
 ### 2. Update Placeholders
 
-**In `addon.yaml`:**
+**In `config.yaml`:**
 ```yaml
 url: https://github.com/yourusername/ha-revolutx-mcp    # Change this
 image: ghcr.io/yourusername/ha-revolutx-mcp/{arch}     # Change this
@@ -125,8 +130,8 @@ Once released:
 - Prepares container image
 - Multi-arch: supports Synology, QNAP, Raspberry Pi, x86
 
-**addon.yaml**
-- HA recognizes this as an addon
+**config.yaml**
+- HA recognizes this as an addon (must be named exactly `config.yaml` or `config.json`)
 - Defines ports, config options, image location
 - Sets memory/CPU limits if needed
 
@@ -136,7 +141,7 @@ Once released:
 - Loads API key from addon options
 - Starts the MCP network transport wrapper
 
-**mcp-network-transport.js**
+**mcp-network-transport.cjs**
 - Starts the revolut-x-api MCP server as subprocess
 - Listens on HTTP port 5000
 - Exposes `/rpc` endpoint for MCP messages
@@ -160,7 +165,7 @@ Claude Desktop
        ↓ (HTTP POST to /rpc)
 your-nas:5000
        ↓
-mcp-network-transport.js
+mcp-network-transport.cjs
        ↓ (stdio to subprocess)
 revolut-x-api/mcp
        ↓ (HTTPS)
@@ -185,7 +190,7 @@ Response flows back
 
 ## Next Steps
 
-1. ✏️ Update `addon.yaml` and `README.md` with your GitHub username
+1. ✏️ Update `config.yaml` and `README.md` with your GitHub username
 2. 📁 Copy all files to your repo
 3. 🔧 Test locally with `docker build` (see DEVELOPMENT.md)
 4. 📤 Push to GitHub

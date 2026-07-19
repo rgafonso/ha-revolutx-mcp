@@ -37,7 +37,7 @@ git push -u origin main
 
 Before pushing, replace placeholders in these files:
 
-**addon.yaml:**
+**config.yaml:**
 ```yaml
 url: https://github.com/rgafonso/ha-revolutx-mcp
 image: ghcr.io/rgafonso/ha-revolutx-mcp/{arch}  # Change yourusername
@@ -50,7 +50,7 @@ image: ghcr.io/rgafonso/ha-revolutx-mcp/{arch}  # Change yourusername
 
 Then commit again:
 ```bash
-git add addon.yaml README.md
+git add config.yaml README.md
 git commit -m "Update repository URLs"
 git push
 ```
@@ -252,7 +252,7 @@ ha-mcp (custom connector routing)
 Home Assistant (on NAS)
     ↓
 revolut-x-mcp (addon container)
-    ├─ mcp-network-transport.js (HTTP wrapper)
+    ├─ mcp-network-transport.cjs (HTTP wrapper)
     └─ revolut-x-api/mcp (MCP server)
         ↓
     Revolut X REST API (HTTPS)

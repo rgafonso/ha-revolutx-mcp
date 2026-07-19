@@ -25,12 +25,12 @@ jobs:
 
     strategy:
       matrix:
-        arch: [amd64, arm64, armv7]
+        arch: [aarch64, amd64, armv7]
         include:
+          - arch: aarch64
+            platform: linux/arm64
           - arch: amd64
             platform: linux/amd64
-          - arch: arm64
-            platform: linux/arm64
           - arch: armv7
             platform: linux/arm/v7
 
@@ -52,11 +52,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Image name includes the arch as a path segment (ghcr.io/owner/repo/<arch>) to
+      # match the `image: ghcr.io/rgafonso/ha-revolutx-mcp/{arch}` reference in config.yaml,
+      # and tags with the plain semver (e.g. "1.0.0") so it matches config.yaml's `version`.
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.arch }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -69,7 +72,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-${{ matrix.arch }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
