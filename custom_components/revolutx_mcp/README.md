@@ -48,10 +48,11 @@ for a given Revolut X account.
 
 ## Connect a client
 
-- **Webhook URL**: shown on the integration's Configure screen, or in the HA log
-  at startup. Format: `<your-ha-url>/api/webhook/<webhook_id>`.
-- **Direct URL** (if enabled): `http://<ha-host>:<port>/<random-path>`, also shown
-  on the Configure screen.
+- **Webhook URL**: shown at the top of the integration's **Configure** screen, in
+  a Home Assistant notification when the server starts, and in the HA log.
+  Format: `<your-ha-url>/api/webhook/<webhook_id>`.
+- **Direct URL** (if enabled): `http://<ha-host>:<port>/<random-path>`, shown in
+  the same three places.
 
 Paste either URL into your MCP client (e.g. a Claude Desktop custom connector).
 

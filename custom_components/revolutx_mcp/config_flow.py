@@ -31,6 +31,7 @@ from .const import (
     LOG_LEVELS,
 )
 from .revolut_client import RevolutXAPIError, RevolutXAuthError, RevolutXClient, load_private_key
+from .urls import direct_connect_url, webhook_connect_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -136,4 +137,19 @@ class RevolutXMCPOptionsFlow(OptionsFlow):
                 ): vol.In(LOG_LEVELS),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+
+        webhook_url = webhook_connect_url(self.hass, self.config_entry.data[CONF_WEBHOOK_ID])
+        if current.get(CONF_DIRECT_SERVER_ENABLED, DEFAULT_DIRECT_SERVER_ENABLED):
+            direct_url = direct_connect_url(
+                self.hass,
+                current.get(CONF_DIRECT_SERVER_PORT, DEFAULT_DIRECT_SERVER_PORT),
+                self.config_entry.data[CONF_DIRECT_SERVER_SECRET],
+            )
+        else:
+            direct_url = "disabled"
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            description_placeholders={"webhook_url": webhook_url, "direct_url": direct_url},
+        )

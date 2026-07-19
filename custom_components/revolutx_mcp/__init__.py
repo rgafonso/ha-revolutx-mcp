@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -30,6 +31,7 @@ from .const import (
 from .direct_server import DirectServer
 from .oauth_legacy import async_register_views
 from .revolut_client import RevolutXClient, load_private_key
+from .urls import direct_connect_url, webhook_connect_url
 from .webhook import async_register_webhook, async_unregister_webhook
 
 _LOGGER = logging.getLogger(__name__)
@@ -97,7 +99,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = RuntimeData(client, direct_server)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+    _notify_connect_urls(hass, entry)
     return True
+
+
+def _notify_connect_urls(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Log and surface (via a persistent notification) the URL(s) to paste into an
+    MCP client — otherwise there's no way to find them without reading the source."""
+    webhook_url = webhook_connect_url(hass, entry.data[CONF_WEBHOOK_ID])
+    lines = [f"Webhook URL: {webhook_url}"]
+
+    if entry.options.get(CONF_DIRECT_SERVER_ENABLED, DEFAULT_DIRECT_SERVER_ENABLED):
+        direct_url = direct_connect_url(
+            hass,
+            entry.options.get(CONF_DIRECT_SERVER_PORT, DEFAULT_DIRECT_SERVER_PORT),
+            entry.data[CONF_DIRECT_SERVER_SECRET],
+        )
+        lines.append(f"Direct URL: {direct_url}")
+
+    message = "\n\n".join(lines)
+    _LOGGER.info("Revolut X MCP server started. %s", message.replace("\n\n", " | "))
+    persistent_notification.async_create(
+        hass,
+        f"Revolut X MCP server started. Paste one of these into your AI client:\n\n{message}",
+        title="Revolut X MCP",
+        notification_id=f"{DOMAIN}_{entry.entry_id}_connect_url",
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
