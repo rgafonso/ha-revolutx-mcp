@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.4.0
+
+- Added optional order-placement tools (`place_order`, `replace_order`,
+  `cancel_order`, `cancel_all_orders`), gated behind a new "Enable order
+  placement (trading)" options-flow toggle (default off). This integration was
+  strictly read-only through 0.3.x; giving an LLM unconditional order-placement
+  access by default is not an acceptable default, but some users explicitly want
+  it, so it's now available opt-in. When the toggle is off, the 4 tools are
+  fully absent from `tools/list`, and calling one by name is rejected with the
+  same error as a genuinely nonexistent tool (so a client can't distinguish
+  "gated" from "doesn't exist"). Threaded end-to-end the same way `auth_mode`
+  already is, from `entry.options` through `webhook.py`/`direct_server.py`/
+  `transport.py` into `mcp_dispatch.py`. `RevolutXClient` gained the 4
+  corresponding REST methods (`POST /orders`, `PUT /orders/{id}`,
+  `DELETE /orders/{id}`, `DELETE /orders`); the place/replace response shape
+  is normalized defensively in `mcp_dispatch.py` since the official OpenAPI
+  spec's own example contradicts its own schema on whether `data` is an object
+  or a one-element array.
+- Added `grid_backtest` / `grid_optimize`: stateless historical simulation of a
+  grid-trading strategy against existing `get_candles` data (`backtest.py`),
+  ported from the upstream `revolut-x-api` repo's MCP server (which has long
+  included this as a read-only, no-live-orders tool). No live orders, always
+  enabled. Added a candle-windowing helper since our REST client caps
+  `get_candles` at ~100 candles/call, unlike upstream's internally-paginated
+  client — it loops sub-windows to assemble up to 50,000 candles per run. The
+  core simulation runs via `hass.async_add_executor_job`: a `grid_optimize`
+  sweep can run up to 200 full backtests over 50,000 candles of `Decimal`
+  arithmetic, which can reach multi-second CPU time and would otherwise block
+  Home Assistant's event loop.
+- Added `list_kb_articles` / `search_kb`: static, originally-authored short
+  summaries for 10 common Revolut X help topics (fees, order types, failed
+  orders, locked balances, etc.), each pointing to Revolut's real help center
+  for authoritative/current details. Not a port of upstream's bundled article
+  text (copyrighted, and not reproducible from this research pass anyway).
+- Added `tests/test_backtest.py` — the repo's first automated tests, scoped to
+  the grid-backtest engine's pure math (the one piece of this release with no
+  live system to sanity-check against). Everything else continues to be
+  verified via `py_compile` + an import smoke test, per this project's
+  established pattern; live confirmation against a real Revolut X account +
+  Claude connection is still pending for the trading tools specifically.
+
 ## 0.3.2
 
 - Fixed `legacy_oauth`'s `/authorize` endpoint returning a bare 401 for every

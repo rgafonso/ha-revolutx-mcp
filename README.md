@@ -10,9 +10,10 @@ Claude Desktop and Claude Code via MCP.
 The recommended way to run this is the **HACS custom_component**. It installs into
 Home Assistant through HACS, runs **in-process**, and works on **every** Home
 Assistant installation type — Home Assistant OS, Supervised, Container, and Core.
-No separate container, no access token to manage by default. It covers the
-read-only tools only (market data, balances, orders/trades history — no order
-placement; see its own README for the full scope and auth options).
+No separate container, no access token to manage by default. It covers market
+data, balances, orders/trades history, grid-strategy backtesting, and a
+help-topic lookup; order placement is available but off by default (see its own
+README for the full scope, the trading toggle, and auth options).
 
 **Add it to Home Assistant via HACS (the preferred install):**
 

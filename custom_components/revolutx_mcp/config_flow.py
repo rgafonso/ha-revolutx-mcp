@@ -22,11 +22,13 @@ from .const import (
     CONF_LOG_LEVEL,
     CONF_OAUTH_SIGNING_KEY,
     CONF_PRIVATE_KEY,
+    CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
     DEFAULT_AUTH_MODE,
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
     DEFAULT_LOG_LEVEL,
+    DEFAULT_TRADING_ENABLED,
     DOMAIN,
     LOG_LEVELS,
 )
@@ -88,6 +90,7 @@ class RevolutXMCPConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                     options={
                         CONF_AUTH_MODE: DEFAULT_AUTH_MODE,
+                        CONF_TRADING_ENABLED: DEFAULT_TRADING_ENABLED,
                         CONF_DIRECT_SERVER_ENABLED: DEFAULT_DIRECT_SERVER_ENABLED,
                         CONF_DIRECT_SERVER_PORT: DEFAULT_DIRECT_SERVER_PORT,
                         CONF_EXTERNAL_URL: "",
@@ -121,6 +124,10 @@ class RevolutXMCPOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_AUTH_MODE, default=current.get(CONF_AUTH_MODE, DEFAULT_AUTH_MODE)
                 ): vol.In(AUTH_MODES),
+                vol.Required(
+                    CONF_TRADING_ENABLED,
+                    default=current.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED),
+                ): bool,
                 vol.Required(
                     CONF_DIRECT_SERVER_ENABLED,
                     default=current.get(CONF_DIRECT_SERVER_ENABLED, DEFAULT_DIRECT_SERVER_ENABLED),

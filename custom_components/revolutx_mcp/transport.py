@@ -65,6 +65,7 @@ async def handle_mcp_http(
     auth_mode: str,
     signing_key: bytes,
     hass: HomeAssistant,
+    trading_enabled: bool = False,
     resource_metadata_url: str | None = None,
 ) -> web.Response:
     """Validate auth (if configured) and dispatch an MCP JSON-RPC request body.
@@ -94,7 +95,7 @@ async def handle_mcp_http(
             status=400,
         )
 
-    response = await handle_message(client, message)
+    response = await handle_message(client, message, trading_enabled)
     if response is None:
         return web.Response(status=204)
     return web.json_response(response)

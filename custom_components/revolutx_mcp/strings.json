@@ -26,6 +26,7 @@
         "description": "**Webhook URL** (works through Nabu Casa or any reverse proxy pointed at Home Assistant): `{webhook_url}`\n\n**Direct URL** (same network only): `{direct_url}`\n\nPaste one of these into your MCP client. Save this form to apply any changes below.",
         "data": {
           "auth_mode": "Authentication mode",
+          "trading_enabled": "Enable order placement (trading)",
           "direct_server_enabled": "Enable direct-port server",
           "direct_server_port": "Direct server port",
           "external_url": "External URL override",
@@ -33,6 +34,7 @@
         },
         "data_description": {
           "auth_mode": "\"none\": the URL above is the credential. \"legacy_oauth\" (recommended for OAuth clients like Claude): this integration's own OAuth server, with self-registration (DCR) so no manual Client ID/Secret is needed. \"ha_auth\": validates your Home Assistant login instead, via Home Assistant's own native OAuth server — no self-registration support, so most generic OAuth clients can't complete it.",
+          "trading_enabled": "⚠️ When enabled, this integration exposes tools that can place, modify, and cancel REAL orders using REAL funds on your Revolut X account, if your MCP client (e.g. Claude) chooses to call them. When disabled (default), those 4 tools are completely hidden from the client's tool list. Only enable this if you trust the MCP client and intend to use it for trading.",
           "direct_server_enabled": "Also listen on a dedicated port on the local network, bypassing the Home Assistant webhook.",
           "direct_server_port": "TCP port for the direct server, only used when it's enabled above.",
           "external_url": "Overrides the auto-detected base URL used for OAuth discovery metadata. Leave blank to auto-detect from Home Assistant's own URL settings.",

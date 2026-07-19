@@ -13,6 +13,7 @@ CONF_DIRECT_SERVER_ENABLED = "direct_server_enabled"
 CONF_DIRECT_SERVER_PORT = "direct_server_port"
 CONF_EXTERNAL_URL = "external_url"
 CONF_LOG_LEVEL = "log_level"
+CONF_TRADING_ENABLED = "trading_enabled"
 
 AUTH_MODE_NONE = "none"
 AUTH_MODE_LEGACY_OAUTH = "legacy_oauth"
@@ -25,6 +26,7 @@ DEFAULT_AUTH_MODE = AUTH_MODE_NONE
 DEFAULT_DIRECT_SERVER_ENABLED = True
 DEFAULT_DIRECT_SERVER_PORT = 8600
 DEFAULT_LOG_LEVEL = "info"
+DEFAULT_TRADING_ENABLED = False
 
 REVX_API_BASE = "https://revx.revolut.com/api/1.0"
 

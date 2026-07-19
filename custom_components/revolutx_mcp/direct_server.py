@@ -36,6 +36,7 @@ class DirectServer:
         client: RevolutXClient,
         auth_mode: str,
         signing_key: bytes,
+        trading_enabled: bool = False,
         issuer: str | None = None,
     ) -> None:
         # RFC 9728 metadata for this port is served on this same port (the resource's
@@ -45,7 +46,9 @@ class DirectServer:
 
         async def _handler(request: web.Request) -> web.Response:
             hint = f"http://{request.host}{resource_metadata_path}"
-            return await handle_mcp_http(request, client, auth_mode, signing_key, hass, hint)
+            return await handle_mcp_http(
+                request, client, auth_mode, signing_key, hass, trading_enabled, hint
+            )
 
         async def _resource_metadata(request: web.Request) -> web.Response:
             resource = f"http://{request.host}/{path_secret}"

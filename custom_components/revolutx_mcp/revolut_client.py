@@ -1,12 +1,14 @@
-"""Async, read-only client for the Revolut X REST API.
+"""Async client for the Revolut X REST API.
 
 Auth: three custom headers (X-Revx-API-Key, X-Revx-Timestamp, X-Revx-Signature),
 where the signature is a base64-encoded Ed25519 signature over
 `timestamp + METHOD + path + query + body` (no separators, body minified JSON).
 See: https://github.com/revolut-engineering/revolut-x-api (revolut-x-api-for-llm.md).
 
-Only read-only endpoints are implemented — this integration deliberately never
-places or cancels orders.
+Covers the full read-only surface plus order placement/replacement/cancellation.
+The write methods are only reachable from MCP tools gated behind this
+integration's own `trading_enabled` config option (see mcp_dispatch.py) — this
+client itself does not enforce that gate, since it has no notion of config entries.
 """
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ from typing import Any
 import aiohttp
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from homeassistant.core import HomeAssistant
 
 from .const import REVX_API_BASE
 
@@ -64,7 +67,12 @@ def sign_request(
 
 
 class RevolutXClient:
-    """Thin async wrapper around the Revolut X REST API (read-only surface)."""
+    """Thin async wrapper around the Revolut X REST API.
+
+    `hass`, if provided, is used only by CPU-bound helpers (the grid-backtest
+    engine in backtest.py) to offload work via `hass.async_add_executor_job` —
+    it plays no role in signing or dispatching HTTP requests.
+    """
 
     def __init__(
         self,
@@ -72,11 +80,13 @@ class RevolutXClient:
         api_key: str,
         private_key: Ed25519PrivateKey,
         base_url: str = REVX_API_BASE,
+        hass: HomeAssistant | None = None,
     ) -> None:
         self._session = session
         self._api_key = api_key
         self._private_key = private_key
         self._base_url = base_url.rstrip("/")
+        self.hass = hass
 
     async def _request(
         self,
@@ -184,6 +194,32 @@ class RevolutXClient:
 
     async def get_order_fills(self, venue_order_id: str) -> Any:
         return await self._request("GET", f"/orders/fills/{venue_order_id}")
+
+    # -- Orders (write) --------------------------------------------------
+
+    async def place_order(
+        self, client_order_id: str, symbol: str, side: str, order_configuration: dict[str, Any]
+    ) -> Any:
+        return await self._request(
+            "POST",
+            "/orders",
+            body={
+                "client_order_id": client_order_id,
+                "symbol": symbol,
+                "side": side,
+                "order_configuration": order_configuration,
+            },
+        )
+
+    async def replace_order(self, venue_order_id: str, client_order_id: str, **fields: Any) -> Any:
+        body = {"client_order_id": client_order_id, **{k: v for k, v in fields.items() if v is not None}}
+        return await self._request("PUT", f"/orders/{venue_order_id}", body=body)
+
+    async def cancel_order(self, venue_order_id: str) -> Any:
+        return await self._request("DELETE", f"/orders/{venue_order_id}")
+
+    async def cancel_all_orders(self) -> Any:
+        return await self._request("DELETE", "/orders")
 
     # -- Trades ----------------------------------------------------------
 

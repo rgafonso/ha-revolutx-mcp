@@ -22,10 +22,12 @@ from .const import (
     CONF_EXTERNAL_URL,
     CONF_OAUTH_SIGNING_KEY,
     CONF_PRIVATE_KEY,
+    CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
     DEFAULT_AUTH_MODE,
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
+    DEFAULT_TRADING_ENABLED,
     DOMAIN,
 )
 from .direct_server import DirectServer
@@ -64,9 +66,10 @@ def _base_url(hass: HomeAssistant, entry: ConfigEntry) -> str:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = aiohttp_client.async_get_clientsession(hass)
     private_key = load_private_key(entry.data[CONF_PRIVATE_KEY])
-    client = RevolutXClient(session, entry.data[CONF_API_KEY], private_key)
+    client = RevolutXClient(session, entry.data[CONF_API_KEY], private_key, hass=hass)
 
     auth_mode = entry.options.get(CONF_AUTH_MODE, DEFAULT_AUTH_MODE)
+    trading_enabled = entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
     signing_key = bytes.fromhex(entry.data[CONF_OAUTH_SIGNING_KEY])
     webhook_id = entry.data[CONF_WEBHOOK_ID]
     base = _base_url(hass, entry)
@@ -77,7 +80,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else None
     )
     async_register_webhook(
-        hass, webhook_id, client, auth_mode, signing_key, webhook_resource_metadata
+        hass,
+        webhook_id,
+        client,
+        auth_mode,
+        signing_key,
+        trading_enabled=trading_enabled,
+        resource_metadata_url=webhook_resource_metadata,
     )
 
     if auth_mode == AUTH_MODE_LEGACY_OAUTH:
@@ -98,7 +107,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         issuer = issuer_url(base) if auth_mode == AUTH_MODE_LEGACY_OAUTH else None
         try:
             await direct_server.async_start(
-                hass, port, path_secret, client, auth_mode, signing_key, issuer
+                hass,
+                port,
+                path_secret,
+                client,
+                auth_mode,
+                signing_key,
+                trading_enabled=trading_enabled,
+                issuer=issuer,
             )
         except OSError as err:
             async_unregister_webhook(hass, webhook_id)

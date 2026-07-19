@@ -28,11 +28,12 @@ def async_register_webhook(
     client: RevolutXClient,
     auth_mode: str,
     signing_key: bytes,
+    trading_enabled: bool = False,
     resource_metadata_url: str | None = None,
 ) -> None:
     async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         return await handle_mcp_http(
-            request, client, auth_mode, signing_key, hass, resource_metadata_url
+            request, client, auth_mode, signing_key, hass, trading_enabled, resource_metadata_url
         )
 
     webhook.async_register(hass, DOMAIN, SERVER_NAME, webhook_id, _handler)

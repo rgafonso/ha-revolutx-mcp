@@ -11,11 +11,13 @@ for a given Revolut X account.
 ## What it does
 
 - Runs the Revolut X MCP tool logic (balances, orders, trades, order book, candles,
-  tickers, public market data — 14 read-only tools total) directly inside Home
-  Assistant's own event loop, signing requests to the Revolut X API with the
-  Ed25519 private key you provide.
-- Never places or cancels orders — `POST /orders` and `DELETE /orders/{id}` are not
-  implemented, matching this project's existing read-only stance.
+  tickers, public market data, grid-strategy backtesting, and a small help-topic
+  lookup — 18 always-available tools) directly inside Home Assistant's own event
+  loop, signing requests to the Revolut X API with the Ed25519 private key you
+  provide.
+- Order placement/modification/cancellation (4 more tools) is available but
+  **off by default** — see [Trading tools (optional)](#trading-tools-optional)
+  below. With it left off, this integration is read-only.
 - Exposes those tools two ways: through a Home Assistant **webhook** (reachable via
   Nabu Casa remote access or any reverse proxy already pointed at your HA
   instance), and optionally through a **standalone port** for direct LAN access.
@@ -83,6 +85,43 @@ for a given Revolut X account.
 
 Paste either URL into your MCP client (e.g. a Claude Desktop custom connector).
 
+## Trading tools (optional)
+
+Options → **Enable order placement (trading)**, off by default. When off, the 4
+tools below don't appear in the MCP client's tool list at all and calling them by
+name is rejected the same way a nonexistent tool name would be. When on, they're
+reachable by any MCP client connected to this integration:
+
+- `place_order` — limit or market order.
+- `replace_order` — modify price/size/time-in-force on an open order (cancels and
+  re-issues it under a new venue order ID).
+- `cancel_order` — cancel one open order.
+- `cancel_all_orders` — cancel **every** open order on the account; there is no
+  symbol filter.
+
+There is no dry-run mode or second confirmation step beyond the toggle itself —
+each tool's description asks the calling LLM to confirm the details with you
+first, but that's a hint the client may or may not honor. Only enable this if you
+trust the MCP client you're connecting and intend to use it for trading.
+
+## Grid backtest tools
+
+`grid_backtest` and `grid_optimize` simulate a grid trading strategy against
+historical candle data already available through this integration's `get_candles`
+tool — no live orders are ever placed, and both are always available (no config
+gate). `grid_backtest` runs one simulation for a given grid size/range/investment;
+`grid_optimize` sweeps a range of grid sizes and ranges (capped at 200
+combinations per call) and ranks the results by total P&L. Simulations run off
+Home Assistant's event loop via `hass.async_add_executor_job`, since a full
+`grid_optimize` sweep over tens of thousands of candles can take real CPU time.
+
+## Knowledge-base tools
+
+`list_kb_articles` and `search_kb` return short, originally-written summaries for
+ten common Revolut X topics (fees, order types, why an order failed, locked
+balances, etc.) — not a copy of Revolut's own help-center text. Each summary
+points to Revolut's official help center for current, authoritative details.
+
 ## Local development
 
 There's no Home Assistant instance in this repo to run the integration against
@@ -92,6 +131,7 @@ directly. To verify changes:
 python -m py_compile custom_components/revolutx_mcp/*.py
 pip install homeassistant cryptography aiohttp voluptuous
 python -c "import custom_components.revolutx_mcp"  # from the repo root
+python -m unittest discover -s tests -t .  # from the repo root — grid-backtest math only
 ```
 
 To actually run it, copy (or symlink) `custom_components/revolutx_mcp` into a real
@@ -100,6 +140,8 @@ the integration.
 
 ## Not implemented (out of scope for this version)
 
-- Strategy backtesting and price-alert monitoring (present in the add-on's README
-  as long-term goals; stateful features, left for a follow-up).
+- Price-alert monitoring and other stateful/long-running background features
+  (grid-strategy backtesting is implemented as a stateless simulation tool;
+  ongoing monitoring would need persistent background state this integration
+  doesn't have).
 - Sidebar admin panel, websocket API, update-checking.
