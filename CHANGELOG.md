@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.0
+
+- Made `legacy_oauth` actually usable by OAuth-capable MCP clients (supersedes
+  0.2.0's guidance to prefer `ha_auth`): live testing against Claude surfaced a
+  second problem beyond the well-known collision — Claude's OAuth client
+  errors with `registration_endpoint_missing` unless a Client ID is manually
+  configured or the server supports Dynamic Client Registration (RFC 7591),
+  and Home Assistant's native AS (the `ha_auth` target) doesn't support DCR at
+  all (it's IndieAuth-only, confirmed via
+  https://developers.home-assistant.io/docs/auth_api/ — client_id must be a
+  URL matching the client's own redirect URI's origin, something a generic
+  client like Claude doesn't implement). Fixed by:
+  - Adding a minimal `/register` (DCR) endpoint to `oauth_legacy.py` — no
+    persistent client registry, just mints a fresh opaque `client_id` per
+    request, since PKCE (already required) is the real security boundary.
+  - Moving this integration's own AS/protected-resource metadata to paths
+    scoped under its own issuer and the specific webhook resource (RFC 8414
+    §3.1 / RFC 9728's path-insertion conventions), instead of the bare
+    `/.well-known/...` root Home Assistant core owns.
+  - Pointing the webhook's 401 response at that exact metadata URL via the
+    `resource_metadata` parameter in `WWW-Authenticate` (RFC 9728 §5.2, a
+    MUST-follow hint), so a spec-compliant client reaches this integration's
+    own OAuth server directly without ever touching the HA-core-owned path.
+  `legacy_oauth` is now the recommended mode for OAuth-capable clients;
+  `ha_auth` remains for reusing an existing Home Assistant login/token.
+
 ## 0.2.0
 
 - Added a third auth mode, `ha_auth`, that validates bearer tokens against

@@ -29,7 +29,7 @@ from .const import (
     DOMAIN,
 )
 from .direct_server import DirectServer
-from .oauth_legacy import async_register_views
+from .oauth_legacy import async_register_views, issuer_url, webhook_resource_metadata_url
 from .revolut_client import RevolutXClient, load_private_key
 from .urls import direct_connect_url, webhook_connect_url
 from .webhook import async_register_webhook, async_unregister_webhook
@@ -69,8 +69,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     auth_mode = entry.options.get(CONF_AUTH_MODE, DEFAULT_AUTH_MODE)
     signing_key = bytes.fromhex(entry.data[CONF_OAUTH_SIGNING_KEY])
     webhook_id = entry.data[CONF_WEBHOOK_ID]
+    base = _base_url(hass, entry)
 
-    async_register_webhook(hass, webhook_id, client, auth_mode, signing_key)
+    webhook_resource_metadata = (
+        webhook_resource_metadata_url(base, webhook_id)
+        if auth_mode == AUTH_MODE_LEGACY_OAUTH
+        else None
+    )
+    async_register_webhook(
+        hass, webhook_id, client, auth_mode, signing_key, webhook_resource_metadata
+    )
 
     if auth_mode == AUTH_MODE_LEGACY_OAUTH:
         if hass.data.get(_OAUTH_VIEWS_KEY):
@@ -87,9 +95,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.options.get(CONF_DIRECT_SERVER_ENABLED, DEFAULT_DIRECT_SERVER_ENABLED):
         port = entry.options.get(CONF_DIRECT_SERVER_PORT, DEFAULT_DIRECT_SERVER_PORT)
         path_secret = entry.data[CONF_DIRECT_SERVER_SECRET]
+        issuer = issuer_url(base) if auth_mode == AUTH_MODE_LEGACY_OAUTH else None
         try:
             await direct_server.async_start(
-                hass, port, path_secret, client, auth_mode, signing_key
+                hass, port, path_secret, client, auth_mode, signing_key, issuer
             )
         except OSError as err:
             async_unregister_webhook(hass, webhook_id)

@@ -16,11 +16,17 @@ from .revolut_client import RevolutXClient
 _LOGGER = logging.getLogger(__name__)
 
 
-def _unauthorized(reason: str) -> web.Response:
+def _unauthorized(reason: str, resource_metadata_url: str | None = None) -> web.Response:
+    challenge = 'Bearer realm="revolutx_mcp"'
+    if resource_metadata_url:
+        # RFC 9728 §5.2: a client MUST use this hint rather than guessing a
+        # well-known path — the only reliable way to reach our own metadata,
+        # since Home Assistant core owns the bare `.well-known` paths.
+        challenge += f', resource_metadata="{resource_metadata_url}"'
     return web.json_response(
         {"error": "unauthorized", "error_description": reason},
         status=401,
-        headers={"WWW-Authenticate": 'Bearer realm="revolutx_mcp"'},
+        headers={"WWW-Authenticate": challenge},
     )
 
 
@@ -59,11 +65,20 @@ async def handle_mcp_http(
     auth_mode: str,
     signing_key: bytes,
     hass: HomeAssistant,
+    resource_metadata_url: str | None = None,
 ) -> web.Response:
-    """Validate auth (if configured) and dispatch an MCP JSON-RPC request body."""
+    """Validate auth (if configured) and dispatch an MCP JSON-RPC request body.
+
+    `resource_metadata_url` is only meaningful for AUTH_MODE_LEGACY_OAUTH — for
+    AUTH_MODE_HA_AUTH, the default (Home-Assistant-core-owned) bare `.well-known`
+    path already points at the right authorization server, so callers should
+    leave it unset in that mode.
+    """
     error = _check_auth(request, auth_mode, signing_key, hass)
     if error:
-        return _unauthorized(error)
+        return _unauthorized(
+            error, resource_metadata_url if auth_mode == AUTH_MODE_LEGACY_OAUTH else None
+        )
 
     try:
         message: Any = await request.json()

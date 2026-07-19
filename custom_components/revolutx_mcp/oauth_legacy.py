@@ -1,17 +1,30 @@
-"""Minimal "legacy" OAuth 2.1 authorization-code + PKCE flow for MCP clients.
+"""Minimal "legacy" OAuth 2.1 authorization-code + PKCE flow for MCP clients,
+with just enough Dynamic Client Registration (RFC 7591) for clients that require
+it (e.g. Claude, which errors with `registration_endpoint_missing` rather than
+falling back when no client_id is pre-configured).
 
-This is deliberately small: a single hardcoded/pre-shared client_id (no dynamic
-client registration — RFC 7591 is a SHOULD, not a MUST, in the MCP auth spec),
-PKCE (S256) required on every exchange, and stateless HMAC-signed access/refresh
-tokens (no database — they validate/expire on their own and survive restarts).
+Discovery note: Home Assistant *core* permanently owns the bare
+`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
+paths (`homeassistant/components/auth/login_flow.py`, part of the always-loaded
+`auth` component) — no custom integration can register there. So this module's
+metadata lives at paths scoped under our own issuer (`/api/revolutx_mcp`, per RFC
+8414 §3.1's path-insertion convention) and under the specific protected resource
+(`/api/webhook/<id>`, per RFC 9728's equivalent convention), and — critically —
+`transport.py` points clients at the exact protected-resource-metadata URL via the
+`resource_metadata` parameter on 401 responses (RFC 9728 §5.2: a MUST-follow hint),
+so a spec-compliant client never needs to guess or hit the HA-core-owned bare path.
 
-Security note: because there's no dynamic client registration, redirect_uri is not
-checked against a pre-registered allowlist — only that it's echoed back consistently
-between /authorize and /token. The consent step at /authorize requires an
-authenticated Home Assistant session (`requires_auth = True`), which is the actual
-access-control boundary: only someone who can already log into this Home Assistant
-instance can mint a token. This mode exists for MCP clients that need a standard
-OAuth handshake to paste a connector URL into; it is not a hardened multi-tenant
+DCR here is intentionally trivial: since redirect_uri is already not checked
+against a pre-registered allowlist (see below) and PKCE is the real security
+boundary, /register just mints and returns a fresh random client_id — no stored
+client registry, nothing to look up later. /authorize and /token accept whatever
+client_id shows up and only tie it into the issued code/token as an opaque label.
+
+Security note: the consent step at /authorize requires an authenticated Home
+Assistant session (`requires_auth = True`), which is the actual access-control
+boundary: only someone who can already log into this Home Assistant instance can
+mint a token. This mode exists for MCP clients that need a standard OAuth
+handshake to paste a connector URL into; it is not a hardened multi-tenant
 authorization server.
 """
 from __future__ import annotations
@@ -42,6 +55,16 @@ _LOGGER = logging.getLogger(__name__)
 
 # In-memory, single-process, one-shot — fine for authorization codes (5 min TTL).
 _AUTH_CODES: dict[str, dict[str, Any]] = {}
+
+ISSUER_PATH = "/api/revolutx_mcp"
+
+
+def issuer_url(base: str) -> str:
+    return f"{base.rstrip('/')}{ISSUER_PATH}"
+
+
+def webhook_resource_metadata_url(base: str, webhook_id: str) -> str:
+    return f"{base.rstrip('/')}/.well-known/oauth-protected-resource/api/webhook/{webhook_id}"
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -130,7 +153,7 @@ def issue_token_pair(signing_key: bytes, client_id: str) -> dict[str, Any]:
 class AuthorizeView(HomeAssistantView):
     """GET renders a one-click consent confirmation, POST issues an auth code."""
 
-    url = "/api/revolutx_mcp/authorize"
+    url = f"{ISSUER_PATH}/authorize"
     name = "api:revolutx_mcp:authorize"
     requires_auth = True  # the HA login itself is the access-control boundary
 
@@ -169,7 +192,7 @@ class AuthorizeView(HomeAssistantView):
 class TokenView(HomeAssistantView):
     """POST /token — authorization_code and refresh_token grants."""
 
-    url = "/api/revolutx_mcp/token"
+    url = f"{ISSUER_PATH}/token"
     name = "api:revolutx_mcp:token"
     requires_auth = False
 
@@ -208,10 +231,44 @@ class TokenView(HomeAssistantView):
         return web.json_response({"error": "unsupported_grant_type"}, status=400)
 
 
-class AuthServerMetadataView(HomeAssistantView):
-    """RFC 8414 authorization server metadata (MUST per the MCP auth spec)."""
+class RegisterView(HomeAssistantView):
+    """POST /register — minimal RFC 7591 Dynamic Client Registration.
 
-    url = "/.well-known/oauth-authorization-server"
+    No stored client registry: /authorize and /token already accept whatever
+    client_id is presented (PKCE is the real security boundary), so this just
+    mints a fresh opaque client_id and echoes back what the client asked for.
+    """
+
+    url = f"{ISSUER_PATH}/register"
+    name = "api:revolutx_mcp:register"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        try:
+            body: dict[str, Any] = await request.json()
+        except ValueError:
+            body = {}
+
+        client_id = f"revolutx-mcp-{secrets.token_urlsafe(12)}"
+        response = {
+            "client_id": client_id,
+            "client_id_issued_at": int(time.time()),
+            "token_endpoint_auth_method": "none",
+            "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"],
+            "redirect_uris": body.get("redirect_uris", []),
+        }
+        if "client_name" in body:
+            response["client_name"] = body["client_name"]
+        return web.json_response(response, status=201)
+
+
+class AuthServerMetadataView(HomeAssistantView):
+    """RFC 8414 authorization server metadata, scoped under our own issuer path
+    so it doesn't collide with the one Home Assistant core always serves at the
+    bare `/.well-known/oauth-authorization-server`."""
+
+    url = f"/.well-known/oauth-authorization-server{ISSUER_PATH}"
     name = "api:revolutx_mcp:oauth-authorization-server"
     requires_auth = False
 
@@ -222,9 +279,10 @@ class AuthServerMetadataView(HomeAssistantView):
         base = self._base_url_fn()
         return web.json_response(
             {
-                "issuer": base,
-                "authorization_endpoint": f"{base}/api/revolutx_mcp/authorize",
-                "token_endpoint": f"{base}/api/revolutx_mcp/token",
+                "issuer": issuer_url(base),
+                "authorization_endpoint": f"{issuer_url(base)}/authorize",
+                "token_endpoint": f"{issuer_url(base)}/token",
+                "registration_endpoint": f"{issuer_url(base)}/register",
                 "response_types_supported": ["code"],
                 "grant_types_supported": ["authorization_code", "refresh_token"],
                 "code_challenge_methods_supported": ["S256"],
@@ -234,21 +292,24 @@ class AuthServerMetadataView(HomeAssistantView):
 
 
 class ProtectedResourceMetadataView(HomeAssistantView):
-    """RFC 9728 protected-resource metadata (MUST per the MCP auth spec)."""
+    """RFC 9728 protected-resource metadata, scoped per webhook resource
+    (`/api/webhook/<id>`) so it doesn't collide with Home Assistant core's own
+    bare `/.well-known/oauth-protected-resource`. Registered once; `webhook_id`
+    is a dynamic path segment, not tied to any single config entry."""
 
-    url = "/.well-known/oauth-protected-resource"
-    name = "api:revolutx_mcp:oauth-protected-resource"
+    url = "/.well-known/oauth-protected-resource/api/webhook/{webhook_id}"
+    name = "api:revolutx_mcp:oauth-protected-resource-webhook"
     requires_auth = False
 
     def __init__(self, base_url_fn) -> None:
         self._base_url_fn = base_url_fn
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self, request: web.Request, webhook_id: str) -> web.Response:
         base = self._base_url_fn()
         return web.json_response(
             {
-                "resource": base,
-                "authorization_servers": [base],
+                "resource": f"{base.rstrip('/')}/api/webhook/{webhook_id}",
+                "authorization_servers": [issuer_url(base)],
             }
         )
 
@@ -257,5 +318,6 @@ def async_register_views(hass: HomeAssistant, signing_key: bytes, base_url_fn) -
     """Register the legacy-OAuth HTTP views with Home Assistant's HTTP component."""
     hass.http.register_view(AuthorizeView())
     hass.http.register_view(TokenView(hass, signing_key))
+    hass.http.register_view(RegisterView())
     hass.http.register_view(AuthServerMetadataView(base_url_fn))
     hass.http.register_view(ProtectedResourceMetadataView(base_url_fn))

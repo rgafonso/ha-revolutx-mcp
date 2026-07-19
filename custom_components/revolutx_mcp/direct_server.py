@@ -36,13 +36,27 @@ class DirectServer:
         client: RevolutXClient,
         auth_mode: str,
         signing_key: bytes,
+        issuer: str | None = None,
     ) -> None:
+        # RFC 9728 metadata for this port is served on this same port (the resource's
+        # own origin) even though the authorization server itself — `issuer`, built
+        # from oauth_legacy.issuer_url() — lives on Home Assistant's main HTTP port.
+        resource_metadata_path = f"/.well-known/oauth-protected-resource/{path_secret}"
+
         async def _handler(request: web.Request) -> web.Response:
-            return await handle_mcp_http(request, client, auth_mode, signing_key, hass)
+            hint = f"http://{request.host}{resource_metadata_path}"
+            return await handle_mcp_http(request, client, auth_mode, signing_key, hass, hint)
+
+        async def _resource_metadata(request: web.Request) -> web.Response:
+            resource = f"http://{request.host}/{path_secret}"
+            return web.json_response(
+                {"resource": resource, "authorization_servers": [issuer] if issuer else []}
+            )
 
         app = web.Application()
         app.router.add_post(f"/{path_secret}", _handler)
         app.router.add_get(f"/{path_secret}/health", lambda _r: web.json_response({"status": "ok"}))
+        app.router.add_get(resource_metadata_path, _resource_metadata)
 
         self._runner = web.AppRunner(app)
         await self._runner.setup()
