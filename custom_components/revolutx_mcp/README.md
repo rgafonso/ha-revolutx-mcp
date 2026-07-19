@@ -143,5 +143,5 @@ the integration.
 - Price-alert monitoring and other stateful/long-running background features
   (grid-strategy backtesting is implemented as a stateless simulation tool;
   ongoing monitoring would need persistent background state this integration
-  doesn't have).
+  doesn't have). See [ROADMAP.md](../../ROADMAP.md) for the intended direction.
 - Sidebar admin panel, websocket API, update-checking.
