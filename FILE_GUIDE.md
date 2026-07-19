@@ -105,8 +105,8 @@ git push
 
 1. Go to your GitHub repo
 2. Click **Releases** → **Create a new release**
-3. Tag: `v1.0.0`
-4. Title: `Revolut X MCP Addon v1.0.0`
+3. Tag: `v0.1.0`
+4. Title: `Revolut X MCP v0.1.0`
 5. Description:
    ```
    - Multi-arch support (amd64, aarch64)
@@ -199,7 +199,7 @@ Response flows back
 2. 📁 Copy all files to your repo
 3. 🔧 Test locally with `docker build` (see DEVELOPMENT.md)
 4. 📤 Push to GitHub
-5. 🏷️ Create a release (v1.0.0)
+5. 🏷️ Create a release (v0.1.0)
 6. 🏠 Add repo to Home Assistant
 7. 🔑 Get Revolut X API key
 8. 🚀 Install addon → configure → connect Claude
