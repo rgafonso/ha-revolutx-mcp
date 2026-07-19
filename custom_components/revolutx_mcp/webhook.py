@@ -4,8 +4,8 @@ Nabu Casa remote access or any reverse proxy already pointed at Home Assistant).
 
 By default (auth mode "none") the webhook_id embedded in the URL is itself the
 credential, matching `homeassistant.components.webhook`'s default posture
-(`requires_auth = False` on the underlying view). When auth mode is "legacy_oauth",
-a bearer token is also required — see `transport.handle_mcp_http`.
+(`requires_auth = False` on the underlying view). When auth mode is "legacy_oauth"
+or "ha_auth", a bearer token is also required — see `transport.handle_mcp_http`.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def async_register_webhook(
     signing_key: bytes,
 ) -> None:
     async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
-        return await handle_mcp_http(request, client, auth_mode, signing_key)
+        return await handle_mcp_http(request, client, auth_mode, signing_key, hass)
 
     webhook.async_register(hass, DOMAIN, SERVER_NAME, webhook_id, _handler)
 

@@ -6,8 +6,9 @@ import logging
 from typing import Any
 
 from aiohttp import web
+from homeassistant.core import HomeAssistant
 
-from .const import AUTH_MODE_LEGACY_OAUTH
+from .const import AUTH_MODE_HA_AUTH, AUTH_MODE_LEGACY_OAUTH
 from .mcp_dispatch import handle_message
 from .oauth_legacy import validate_access_token
 from .revolut_client import RevolutXClient
@@ -23,23 +24,44 @@ def _unauthorized(reason: str) -> web.Response:
     )
 
 
-def _check_auth(request: web.Request, auth_mode: str, signing_key: bytes) -> str | None:
+def _check_auth(
+    request: web.Request, auth_mode: str, signing_key: bytes, hass: HomeAssistant
+) -> str | None:
     """Return an error reason if the request fails auth for the configured mode, else None."""
-    if auth_mode != AUTH_MODE_LEGACY_OAUTH:
+    if auth_mode not in (AUTH_MODE_LEGACY_OAUTH, AUTH_MODE_HA_AUTH):
         return None
+
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer "):
         return "Missing bearer token"
-    if not validate_access_token(header.removeprefix("Bearer "), signing_key):
-        return "Invalid or expired token"
+    token = header.removeprefix("Bearer ")
+
+    if auth_mode == AUTH_MODE_LEGACY_OAUTH:
+        if not validate_access_token(token, signing_key):
+            return "Invalid or expired token"
+        return None
+
+    # AUTH_MODE_HA_AUTH: delegate entirely to Home Assistant's own auth system —
+    # this validates tokens minted by HA core's native /auth/authorize + /auth/token
+    # flow (or a user's Long-Lived Access Token), the same tokens issued via the
+    # OAuth server HA core itself advertises at /.well-known/oauth-authorization-server.
+    # That well-known path is owned by HA core (homeassistant/components/auth) on
+    # every installation, regardless of what integrations are present, so it's the
+    # only OAuth server a spec-compliant client will ever actually discover here.
+    if hass.auth.async_validate_access_token(token) is None:
+        return "Invalid or expired Home Assistant access token"
     return None
 
 
 async def handle_mcp_http(
-    request: web.Request, client: RevolutXClient, auth_mode: str, signing_key: bytes
+    request: web.Request,
+    client: RevolutXClient,
+    auth_mode: str,
+    signing_key: bytes,
+    hass: HomeAssistant,
 ) -> web.Response:
     """Validate auth (if configured) and dispatch an MCP JSON-RPC request body."""
-    error = _check_auth(request, auth_mode, signing_key)
+    error = _check_auth(request, auth_mode, signing_key, hass)
     if error:
         return _unauthorized(error)
 

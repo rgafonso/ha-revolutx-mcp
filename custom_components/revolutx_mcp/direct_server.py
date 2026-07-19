@@ -38,7 +38,7 @@ class DirectServer:
         signing_key: bytes,
     ) -> None:
         async def _handler(request: web.Request) -> web.Response:
-            return await handle_mcp_http(request, client, auth_mode, signing_key)
+            return await handle_mcp_http(request, client, auth_mode, signing_key, hass)
 
         app = web.Application()
         app.router.add_post(f"/{path_secret}", _handler)

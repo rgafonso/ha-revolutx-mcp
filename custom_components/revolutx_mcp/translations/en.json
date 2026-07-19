@@ -32,7 +32,7 @@
           "log_level": "Log level"
         },
         "data_description": {
-          "auth_mode": "\"none\": the URL above is the credential. \"legacy_oauth\": clients must complete an OAuth sign-in instead.",
+          "auth_mode": "\"none\": the URL above is the credential. \"ha_auth\" (recommended for OAuth clients): validated against your Home Assistant login, via the OAuth server Home Assistant core itself already publishes — this is the only OAuth server most clients will actually discover. \"legacy_oauth\": this integration's own OAuth server; unreachable by clients that do standard discovery, since Home Assistant core permanently owns the well-known discovery paths.",
           "direct_server_enabled": "Also listen on a dedicated port on the local network, bypassing the Home Assistant webhook.",
           "direct_server_port": "TCP port for the direct server, only used when it's enabled above.",
           "external_url": "Overrides the auto-detected base URL used for OAuth discovery metadata. Leave blank to auto-detect from Home Assistant's own URL settings.",

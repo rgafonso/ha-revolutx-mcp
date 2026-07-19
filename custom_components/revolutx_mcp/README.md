@@ -38,13 +38,26 @@ for a given Revolut X account.
 - **none** (default): the webhook URL / direct-server URL itself is the
   credential, same as Home Assistant's webhook component's normal behavior — no
   token to manage, keep the URL secret.
-- **legacy_oauth**: MCP clients authenticate with a standard OAuth 2.1
-  Authorization Code + PKCE flow instead (`/api/revolutx_mcp/authorize`,
-  `/api/revolutx_mcp/token`, plus `/.well-known/oauth-authorization-server` and
-  `/.well-known/oauth-protected-resource` for discovery). The `/authorize` step
-  requires you to be logged into this Home Assistant instance — that login is the
-  actual access-control boundary, since there's no dynamic client registration.
-  See `oauth_legacy.py` for the full design notes and its limitations.
+- **ha_auth** (recommended if you want per-client OAuth login instead of a secret
+  URL): tokens are validated against Home Assistant's own native auth system
+  (`hass.auth.async_validate_access_token`) — the same tokens issued by HA core's
+  own `/auth/authorize` + `/auth/token` flow, or a Long-Lived Access Token from
+  your HA user profile. This is the mode to use with OAuth-capable MCP clients,
+  because of the collision described below.
+- **legacy_oauth**: this integration's *own* OAuth 2.1 Authorization Code + PKCE
+  server (`/api/revolutx_mcp/authorize`, `/api/revolutx_mcp/token`). Kept for
+  completeness, but **in practice it's unreachable by any client that does
+  standard OAuth discovery**: Home Assistant *core itself* permanently registers
+  `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
+  (`homeassistant/components/auth/login_flow.py`, part of the always-loaded `auth`
+  component) pointing at its own `/auth/authorize` + `/auth/token` — on every HA
+  installation, regardless of what integrations are present. No custom integration
+  can win that path. A client that discovers first and authenticates second will
+  end up authenticating against HA's native AS, not this one, and this webhook
+  won't accept HA-native tokens in `legacy_oauth` mode (only `ha_auth` mode does).
+  Use `legacy_oauth` only if you know your client skips discovery and lets you
+  hardcode the authorize/token URLs directly. See `oauth_legacy.py` for the full
+  design notes.
 
 ## Connect a client
 
