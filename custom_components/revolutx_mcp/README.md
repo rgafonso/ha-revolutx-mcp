@@ -102,6 +102,4 @@ the integration.
 
 - Strategy backtesting and price-alert monitoring (present in the add-on's README
   as long-term goals; stateful features, left for a follow-up).
-- Sidebar admin panel, websocket API, update-checking, `ha_auth` mode.
-- Dynamic OAuth client registration (RFC 7591) — the legacy OAuth client_id is
-  fixed (`revolutx-mcp`).
+- Sidebar admin panel, websocket API, update-checking.

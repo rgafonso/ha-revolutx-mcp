@@ -18,7 +18,7 @@
   redirects to the original client's `redirect_uri`. Verified end-to-end
   (DCR → authorize redirect → simulated HA login → callback → PKCE token
   exchange) against a full aiohttp test harness using Home Assistant's real
-  view-dispatch code; pending live confirmation against Claude. Only
+  view-dispatch code, and confirmed working live against Claude. Only
   `custom_components/revolutx_mcp`; the Supervisor add-on is unaffected.
 
 ## 0.3.1
@@ -34,8 +34,10 @@
   instead — the 404 was reproduced live via `curl` against a real
   openresty-fronted custom domain; the fix itself is verified against an
   isolated aiohttp test harness using Home Assistant's real view-dispatch
-  code, pending live confirmation. The JSON body's `resource` field still
-  correctly points at the real webhook URL. Only `custom_components/revolutx_mcp`;
+  code, and confirmed working live (superseded by 0.3.2, which fixed a
+  separate issue in the same flow and confirmed the whole thing end-to-end
+  against Claude). The JSON body's `resource` field still correctly points at
+  the real webhook URL. Only `custom_components/revolutx_mcp`;
   the Supervisor add-on is unaffected.
 
 ## 0.3.0
