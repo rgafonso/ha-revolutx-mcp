@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+npm-debug.log
+
+# Build output
+dist/
+build/
+
+# Home Assistant
+.homeassistant/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials (never commit)
+.config/
+config/
+
+# Docker
+.docker/
+
+# Logs
+*.log

@@ -1,2 +1,29 @@
-url: https://github.com/yourusername/revolut-x-addon
-image: ghcr.io/rgafonso/ha-revolutx-mcp/{arch} 
+name: Revolut X Trading MCP
+description: MCP server for Revolut X crypto exchange trading, market data, and strategy backtesting
+version: 1.0.0
+slug: revolut_x_mcp
+url: https://github.com/rgafonso/ha-revolutx-mcp
+homeassistant: 2024.1.0
+host_network: false
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: MCP server (network transport)
+environment:
+  NODE_ENV: production
+  LOG_LEVEL: info
+volumes:
+  - config:rw
+image: ghcr.io/rgafonso/ha-revolutx-mcp/{arch}
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: false
+startup: system
+options:
+  api_key: ""
+  log_level: info
+schema:
+  api_key: str
+  log_level: list(debug|info|warn|error)?
