@@ -17,7 +17,7 @@ Home Assistant addon that runs the Revolut X MCP server, exposing crypto trading
 
 1. Go to **Settings → Add-ons → Add-on Marketplace** (bottom right)
 2. Click the three dots (⋮) → **Repositories**
-3. Add: `https://github.com/yourusername/revolut-x-addon`
+3. Add: `https://github.com/rgafonso/ha-revolutx-mcp`
 4. Click **Install**
 
 ### 2. Start the Addon
