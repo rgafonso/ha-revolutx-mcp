@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Revolut X",
+        "description": "Paste your Revolut X API key and the Ed25519 private key (PEM) you generated for it. See https://developer.revolut.com/docs/x-api for how to create these.",
+        "data": {
+          "api_key": "API key",
+          "private_key": "Private key (PEM)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The API key or private key was rejected by Revolut X.",
+      "invalid_private_key": "Could not parse the private key as a PEM-encoded Ed25519 key.",
+      "cannot_connect": "Could not reach the Revolut X API."
+    },
+    "abort": {
+      "already_configured": "This Revolut X API key is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Revolut X MCP settings",
+        "data": {
+          "auth_mode": "Authentication mode for MCP clients",
+          "direct_server_enabled": "Enable direct-port server (LAN access without the HA webhook)",
+          "direct_server_port": "Direct server port",
+          "external_url": "External URL override (leave blank to auto-detect)",
+          "log_level": "Log level"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "revolutx_mcp",
+  "name": "Revolut X MCP",
+  "codeowners": ["@rgafonso"],
+  "config_flow": true,
+  "documentation": "https://github.com/rgafonso/ha-revolutx-mcp/blob/main/custom_components/revolutx_mcp/README.md",
+  "issue_tracker": "https://github.com/rgafonso/ha-revolutx-mcp/issues",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "requirements": ["cryptography>=41.0.0"],
+  "version": "0.1.0"
+}

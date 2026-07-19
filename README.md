@@ -1,6 +1,18 @@
-# Revolut X Trading MCP Addon
+# Revolut X Trading MCP
 
-Home Assistant addon that runs the Revolut X MCP server, exposing crypto trading, market data, and strategy tools to Claude Desktop and Claude Code.
+Exposes Revolut X crypto exchange market data, account, and trading tools to
+Claude Desktop and Claude Code via MCP. Two independent install methods live in
+this repo — pick one:
+
+| | [HACS custom_component](custom_components/revolutx_mcp/README.md) | Supervisor add-on (this file) |
+|---|---|---|
+| Runs | In-process, inside Home Assistant | Separate Docker container |
+| Works on | OS, Supervised, Container, Core | OS, Supervised (needs Supervisor) |
+| Install via | HACS custom repository | HA Add-on Store repository |
+| Scope | Read-only tools only (no order placement) | Full feature set (trading via Claude Code, backtesting, alerts) |
+
+The rest of this file documents the **Supervisor add-on**. For the in-process HACS
+integration, see [custom_components/revolutx_mcp/README.md](custom_components/revolutx_mcp/README.md).
 
 ## Features
 

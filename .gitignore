@@ -2,6 +2,10 @@
 node_modules/
 npm-debug.log
 
+# Python
+__pycache__/
+*.pyc
+
 # Build output
 dist/
 build/

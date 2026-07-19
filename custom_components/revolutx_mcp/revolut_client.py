@@ -1,0 +1,259 @@
+"""Async, read-only client for the Revolut X REST API.
+
+Auth: three custom headers (X-Revx-API-Key, X-Revx-Timestamp, X-Revx-Signature),
+where the signature is a base64-encoded Ed25519 signature over
+`timestamp + METHOD + path + query + body` (no separators, body minified JSON).
+See: https://github.com/revolut-engineering/revolut-x-api (revolut-x-api-for-llm.md).
+
+Only read-only endpoints are implemented — this integration deliberately never
+places or cancels orders.
+"""
+from __future__ import annotations
+
+import base64
+import json
+import time
+from typing import Any
+
+import aiohttp
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+from .const import REVX_API_BASE
+
+
+class RevolutXAuthError(Exception):
+    """Raised on 401/403 responses (bad API key / signature / IP allowlist)."""
+
+
+class RevolutXAPIError(Exception):
+    """Raised on any other non-2xx response."""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(f"HTTP {status}: {message}")
+        self.status = status
+
+
+def load_private_key(pem_text: str) -> Ed25519PrivateKey:
+    """Parse a PEM-encoded Ed25519 private key."""
+    key = load_pem_private_key(pem_text.encode("utf-8"), password=None)
+    if not isinstance(key, Ed25519PrivateKey):
+        raise ValueError("Private key is not an Ed25519 key")
+    return key
+
+
+def _query_string(params: dict[str, Any] | None) -> str:
+    if not params:
+        return ""
+    parts = [f"{k}={v}" for k, v in params.items() if v is not None]
+    return "&".join(parts)
+
+
+def sign_request(
+    private_key: Ed25519PrivateKey,
+    timestamp_ms: int,
+    method: str,
+    path: str,
+    query: str,
+    body: str,
+) -> str:
+    """Build and sign the Revolut X request digest, return base64 signature."""
+    message = f"{timestamp_ms}{method.upper()}{path}{query}{body}".encode("utf-8")
+    signature = private_key.sign(message)
+    return base64.b64encode(signature).decode("ascii")
+
+
+class RevolutXClient:
+    """Thin async wrapper around the Revolut X REST API (read-only surface)."""
+
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        api_key: str,
+        private_key: Ed25519PrivateKey,
+        base_url: str = REVX_API_BASE,
+    ) -> None:
+        self._session = session
+        self._api_key = api_key
+        self._private_key = private_key
+        self._base_url = base_url.rstrip("/")
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        auth: bool = True,
+    ) -> Any:
+        query = _query_string(params)
+        body_str = json.dumps(body, separators=(",", ":")) if body is not None else ""
+        url = f"{self._base_url}{path}"
+        if query:
+            url = f"{url}?{query}"
+
+        headers = {"Content-Type": "application/json"}
+        if auth:
+            timestamp_ms = int(time.time() * 1000)
+            full_path = f"/api/1.0{path}"
+            signature = sign_request(
+                self._private_key, timestamp_ms, method, full_path, query, body_str
+            )
+            headers |= {
+                "X-Revx-API-Key": self._api_key,
+                "X-Revx-Timestamp": str(timestamp_ms),
+                "X-Revx-Signature": signature,
+            }
+
+        async with self._session.request(
+            method, url, headers=headers, data=body_str if body is not None else None
+        ) as resp:
+            text = await resp.text()
+            if resp.status in (401, 403):
+                raise RevolutXAuthError(text or f"HTTP {resp.status}")
+            if resp.status >= 400:
+                raise RevolutXAPIError(resp.status, text)
+            if not text:
+                return None
+            return json.loads(text)
+
+    # -- Account -----------------------------------------------------
+
+    async def get_balances(self) -> Any:
+        return await self._request("GET", "/balances")
+
+    # -- Configuration -------------------------------------------------
+
+    async def get_currencies(self) -> Any:
+        return await self._request("GET", "/configuration/currencies")
+
+    async def get_pairs(self) -> Any:
+        return await self._request("GET", "/configuration/pairs")
+
+    # -- Orders (read-only) --------------------------------------------
+
+    async def get_active_orders(
+        self,
+        symbols: str | None = None,
+        order_states: str | None = None,
+        order_types: str | None = None,
+        side: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        return await self._request(
+            "GET",
+            "/orders/active",
+            params={
+                "symbols": symbols,
+                "order_states": order_states,
+                "order_types": order_types,
+                "side": side,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    async def get_historical_orders(
+        self,
+        symbols: str | None = None,
+        order_states: str | None = None,
+        order_types: str | None = None,
+        start_date: int | None = None,
+        end_date: int | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        return await self._request(
+            "GET",
+            "/orders/historical",
+            params={
+                "symbols": symbols,
+                "order_states": order_states,
+                "order_types": order_types,
+                "start_date": start_date,
+                "end_date": end_date,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    async def get_order(self, venue_order_id: str) -> Any:
+        return await self._request("GET", f"/orders/{venue_order_id}")
+
+    async def get_order_fills(self, venue_order_id: str) -> Any:
+        return await self._request("GET", f"/orders/fills/{venue_order_id}")
+
+    # -- Trades ----------------------------------------------------------
+
+    async def get_all_trades(
+        self,
+        symbol: str,
+        start_date: int | None = None,
+        end_date: int | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        return await self._request(
+            "GET",
+            f"/trades/all/{symbol}",
+            params={
+                "start_date": start_date,
+                "end_date": end_date,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    async def get_private_trades(
+        self,
+        symbol: str,
+        start_date: int | None = None,
+        end_date: int | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        return await self._request(
+            "GET",
+            f"/trades/private/{symbol}",
+            params={
+                "start_date": start_date,
+                "end_date": end_date,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    # -- Market data -------------------------------------------------------
+
+    async def get_order_book(self, symbol: str, limit: int | None = None) -> Any:
+        return await self._request(
+            "GET", f"/order-book/{symbol}", params={"limit": limit}
+        )
+
+    async def get_candles(
+        self,
+        symbol: str,
+        interval: int | None = None,
+        since: int | None = None,
+        until: int | None = None,
+    ) -> Any:
+        return await self._request(
+            "GET",
+            f"/candles/{symbol}",
+            params={"interval": interval, "since": since, "until": until},
+        )
+
+    async def get_tickers(self, symbols: str | None = None) -> Any:
+        return await self._request("GET", "/tickers", params={"symbols": symbols})
+
+    # -- Public (unauthenticated) -----------------------------------------
+
+    async def get_public_last_trades(self) -> Any:
+        return await self._request("GET", "/public/last-trades", auth=False)
+
+    async def get_public_order_book(self, symbol: str) -> Any:
+        return await self._request(
+            "GET", f"/public/order-book/{symbol}", auth=False
+        )

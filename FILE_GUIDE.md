@@ -1,5 +1,10 @@
 # ha-revolutx-mcp: File Structure & Setup Guide
 
+> This guide covers the **Supervisor add-on** files only. The repo also contains a
+> separate, in-process **HACS custom_component** under `custom_components/revolutx_mcp/`
+> — see [its own README](custom_components/revolutx_mcp/README.md) for that install
+> method's structure and setup.
+
 ## Repository Structure
 
 ```
