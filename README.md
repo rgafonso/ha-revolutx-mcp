@@ -1,18 +1,56 @@
 # Revolut X Trading MCP
 
 Exposes Revolut X crypto exchange market data, account, and trading tools to
-Claude Desktop and Claude Code via MCP. Two independent install methods live in
-this repo — pick one:
+Claude Desktop and Claude Code via MCP.
 
-| | [HACS custom_component](custom_components/revolutx_mcp/README.md) | Supervisor add-on (this file) |
-|---|---|---|
-| Runs | In-process, inside Home Assistant | Separate Docker container |
-| Works on | OS, Supervised, Container, Core | OS, Supervised (needs Supervisor) |
-| Install via | HACS custom repository | HA Add-on Store repository |
-| Scope | Read-only tools only (no order placement) | Full feature set (trading via Claude Code, backtesting, alerts) |
+---
 
-The rest of this file documents the **Supervisor add-on**. For the in-process HACS
-integration, see [custom_components/revolutx_mcp/README.md](custom_components/revolutx_mcp/README.md).
+## 🚀 Get Started
+
+The recommended way to run this is the **HACS custom_component**. It installs into
+Home Assistant through HACS, runs **in-process**, and works on **every** Home
+Assistant installation type — Home Assistant OS, Supervised, Container, and Core.
+No separate container, no access token to manage by default. It covers the
+read-only tools only (market data, balances, orders/trades history — no order
+placement; see its own README for the full scope and auth options).
+
+**Add it to Home Assistant via HACS (the preferred install):**
+
+[![Add Revolut X MCP to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=rgafonso&repository=ha-revolutx-mcp&category=integration)
+
+**Quick start:**
+
+1. Click the badge above, or in HACS open **Integrations → ⋮ → Custom repositories**, add `https://github.com/rgafonso/ha-revolutx-mcp` (category: **Integration**), then **Download**.
+2. **Restart Home Assistant.**
+3. Go to **Settings → Devices & Services → Add Integration**, search for **Revolut X MCP**, and paste your Revolut X API key and Ed25519 private key (PEM) — validated live against the Revolut X API before the entry is created.
+4. Copy the connect URL from the entry's **Configure** screen — it's also printed in the Home Assistant log.
+5. Paste that URL into your AI client — done.
+
+Full details (auth modes, legacy OAuth, direct-port access): [custom_components/revolutx_mcp/README.md](custom_components/revolutx_mcp/README.md).
+
+### 🏠 Home Assistant Add-on (alternative)
+
+Prefer to run this as a Home Assistant **add-on** (Docker container) instead? It
+has the fuller feature set described below (trading via Claude Code, strategy
+backtesting, price alerts) but only runs on OS/Supervised installs, and needs its
+own API key configured separately — it does not share credentials with the HACS
+component.
+
+**Add the repository to Home Assistant:**
+
+[![Add Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Frgafonso%2Fha-revolutx-mcp)
+
+**Quick start:**
+
+1. Click the badge above, or in Home Assistant go to **Settings → Add-ons → Add-on Marketplace → ⋮ → Repositories**, add `https://github.com/rgafonso/ha-revolutx-mcp`.
+2. Install and **Start** the **Revolut X Trading MCP** add-on.
+3. Get a Revolut X API key: [Revolut X](https://exchange.revolut.com) → Profile → API Keys → Generate keypair → add the public key to your account → create an API key.
+4. Paste it into the addon's **Configuration** tab → Save → Restart.
+5. In Claude Desktop: Settings → Connectors → Add custom connector → Name `Revolut X`, URL `http://your-nas-ip:5000` → Add.
+
+The rest of this README documents the add-on in more detail.
+
+---
 
 ## Features
 
@@ -22,47 +60,6 @@ integration, see [custom_components/revolutx_mcp/README.md](custom_components/re
 - **Strategy Backtesting**: Test grid strategies with historical data
 - **Price Monitoring**: Set alerts for technical indicators (RSI, MACD, Bollinger, etc.)
 - **Network MCP**: Access via Claude Desktop custom connector over your home network
-
-## Installation
-
-### 1. Add the Repository to Home Assistant
-
-1. Go to **Settings → Add-ons → Add-on Marketplace** (bottom right)
-2. Click the three dots (⋮) → **Repositories**
-3. Add: `https://github.com/rgafonso/ha-revolutx-mcp`
-4. Click **Install**
-
-### 2. Start the Addon
-
-1. Click **Revolut X Trading MCP**
-2. Toggle **Start on boot** (optional)
-3. Click **Start**
-
-### 3. Get Your Revolut X API Key
-
-1. Go to [Revolut X](https://exchange.revolut.com) → **Profile → API Keys**
-2. Click **Generate keypair** (save the public key)
-3. Add the public key to your Revolut X account
-4. Create a new API key → **copy it**
-
-### 4. Configure the Addon
-
-1. In Home Assistant, go to the addon **Configuration** tab
-2. Paste your API key into the `api_key` field
-3. Click **Save**
-4. **Restart** the addon
-
-### 5. Connect to Claude Desktop
-
-1. Open Claude Desktop settings
-2. Go to **Connectors** → **Add custom connector**
-3. Fill in:
-   - **Name**: `Revolut X`
-   - **URL**: `http://your-nas-ip:5000`
-   - **OAuth ID**: (leave blank for now)
-   - **OAuth Secret**: (leave blank for now)
-4. Click **Add**
-5. In Claude, ask: **"Check my Revolut X balances"**
 
 ## Usage
 

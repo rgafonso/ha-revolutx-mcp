@@ -15,7 +15,7 @@ ha-revolutx-mcp/
 ├── .gitignore                         # Git exclusions
 ├── repository.yaml                    # Identifies this repo as a HA add-on repository
 ├── config.yaml                        # Home Assistant addon metadata & config schema
-├── Dockerfile                         # Multi-arch Docker build (aarch64, amd64, armv7)
+├── Dockerfile                         # Multi-arch Docker build (aarch64, amd64)
 ├── entrypoint.sh                      # Addon startup script with credential handling
 ├── mcp-network-transport.cjs           # HTTP wrapper for network MCP (stdio ↔ HTTP)
 ├── LICENSE                            # MIT license
@@ -109,7 +109,7 @@ git push
 4. Title: `Revolut X MCP Addon v1.0.0`
 5. Description:
    ```
-   - Multi-arch support (amd64, arm64, armv7)
+   - Multi-arch support (amd64, aarch64)
    - Network MCP server over HTTP
    - Revolut X market data, account, trading, monitoring
    - Read-only by design (market data & info only)

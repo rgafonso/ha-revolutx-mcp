@@ -51,16 +51,20 @@ curl -X POST http://localhost:5000/rpc \
 The `config.yaml` specifies:
 - `aarch64` (ARM 64-bit for NAS, Raspberry Pi 4+)
 - `amd64` (Intel/AMD x86_64)
-- `armv7` (ARM 32-bit for older RPi)
+
+`armv7` (32-bit ARM, older RPi) is intentionally not built: `sharp`, pulled in
+transitively by the upstream `revolut-x-api` repo, has no prebuilt binary for
+`linuxmusl-armv7` and fails to compile from source there either (verified locally
+with `docker buildx build --platform linux/arm/v7`).
 
 Use GitHub Actions with `build/qemu-action` for cross-platform builds:
 
 ```yaml
-- uses: docker/setup-qemu-action@v3
-- uses: docker/setup-buildx-action@v3
-- uses: docker/build-push-action@v5
+- uses: docker/setup-qemu-action@v4
+- uses: docker/setup-buildx-action@v4
+- uses: docker/build-push-action@v7
   with:
-    platforms: linux/amd64,linux/arm64,linux/arm/v7
+    platforms: linux/amd64,linux/arm64
 ```
 
 ## Troubleshooting Build Issues
