@@ -8,11 +8,15 @@ Discovery note: Home Assistant *core* permanently owns the bare
 paths (`homeassistant/components/auth/login_flow.py`, part of the always-loaded
 `auth` component) — no custom integration can register there. So this module's
 metadata lives at paths scoped under our own issuer (`/api/revolutx_mcp`, per RFC
-8414 §3.1's path-insertion convention) and under the specific protected resource
-(`/api/webhook/<id>`, per RFC 9728's equivalent convention), and — critically —
-`transport.py` points clients at the exact protected-resource-metadata URL via the
-`resource_metadata` parameter on 401 responses (RFC 9728 §5.2: a MUST-follow hint),
-so a spec-compliant client never needs to guess or hit the HA-core-owned bare path.
+8414 §3.1's path-insertion convention), including the per-resource metadata (RFC
+9728's equivalent convention) — which is deliberately kept under our own issuer
+path too, rather than under the webhook's own `/api/webhook/<id>` path, since
+reverse proxies in front of Home Assistant commonly special-case that literal
+path pattern and would otherwise swallow it (see `webhook_resource_metadata_url`
+below). `transport.py` points clients at the exact protected-resource-metadata
+URL via the `resource_metadata` parameter on 401 responses (RFC 9728 §5.2: a
+MUST-follow hint), so a spec-compliant client never needs to guess or hit the
+HA-core-owned bare path.
 
 DCR here is intentionally trivial: since redirect_uri is already not checked
 against a pre-registered allowlist (see below) and PKCE is the real security
@@ -64,7 +68,13 @@ def issuer_url(base: str) -> str:
 
 
 def webhook_resource_metadata_url(base: str, webhook_id: str) -> str:
-    return f"{base.rstrip('/')}/.well-known/oauth-protected-resource/api/webhook/{webhook_id}"
+    # Deliberately does NOT reuse the `/api/webhook/<id>` path shape: some reverse
+    # proxies in front of Home Assistant allow-list (or otherwise special-case)
+    # exactly that path pattern for the real webhook, which then swallows this
+    # discovery URL too since it happens to end the same way. Living under our own
+    # issuer path instead sidesteps that class of collision; the JSON body's
+    # `resource` field is what actually points at the real webhook URL.
+    return f"{base.rstrip('/')}/.well-known/oauth-protected-resource{ISSUER_PATH}/{webhook_id}"
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -292,12 +302,14 @@ class AuthServerMetadataView(HomeAssistantView):
 
 
 class ProtectedResourceMetadataView(HomeAssistantView):
-    """RFC 9728 protected-resource metadata, scoped per webhook resource
-    (`/api/webhook/<id>`) so it doesn't collide with Home Assistant core's own
-    bare `/.well-known/oauth-protected-resource`. Registered once; `webhook_id`
-    is a dynamic path segment, not tied to any single config entry."""
+    """RFC 9728 protected-resource metadata, scoped under our own issuer path
+    (not the webhook's own `/api/webhook/<id>` path — see the comment in
+    `webhook_resource_metadata_url` for why) so it doesn't collide with Home
+    Assistant core's own bare `/.well-known/oauth-protected-resource`, or with
+    any reverse-proxy rule scoped to the real webhook path. Registered once;
+    `webhook_id` is a dynamic path segment, not tied to any single config entry."""
 
-    url = "/.well-known/oauth-protected-resource/api/webhook/{webhook_id}"
+    url = "/.well-known/oauth-protected-resource" + ISSUER_PATH + "/{webhook_id}"
     name = "api:revolutx_mcp:oauth-protected-resource-webhook"
     requires_auth = False
 

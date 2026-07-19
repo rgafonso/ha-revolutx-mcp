@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed `legacy_oauth`'s protected-resource metadata URL (introduced in 0.3.0)
+  404ing behind some reverse proxies: it previously ended in the literal
+  `/api/webhook/<id>` path segment to mirror the webhook it describes, but
+  proxies that specifically allow-list or otherwise special-case that exact
+  path (a common pattern for hiding webhook IDs from internet scanners) ended
+  up swallowing the discovery URL too, even though it's a completely different
+  route. The metadata URL now lives under this integration's own issuer path
+  (`/.well-known/oauth-protected-resource/api/revolutx_mcp/<webhook_id>`)
+  instead — the 404 was reproduced live via `curl` against a real
+  openresty-fronted custom domain; the fix itself is verified against an
+  isolated aiohttp test harness using Home Assistant's real view-dispatch
+  code, pending live confirmation. The JSON body's `resource` field still
+  correctly points at the real webhook URL. Only `custom_components/revolutx_mcp`;
+  the Supervisor add-on is unaffected.
+
 ## 0.3.0
 
 - Made `legacy_oauth` actually usable by OAuth-capable MCP clients (supersedes
