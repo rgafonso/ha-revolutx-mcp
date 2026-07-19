@@ -99,14 +99,16 @@ class RevolutXMCPConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> "RevolutXMCPOptionsFlow":
-        return RevolutXMCPOptionsFlow(config_entry)
+        return RevolutXMCPOptionsFlow()
 
 
 class RevolutXMCPOptionsFlow(OptionsFlow):
-    """Options: auth mode, direct-server port/toggle, external URL override, log level."""
+    """Options: auth mode, direct-server port/toggle, external URL override, log level.
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
+    Does not set `self.config_entry` in __init__ — recent Home Assistant core
+    versions made it a read-only property that the flow manager populates itself;
+    assigning to it raises `AttributeError: property 'config_entry' has no setter`.
+    """
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
