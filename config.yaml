@@ -1,6 +1,6 @@
 name: Revolut X Trading MCP
 description: MCP server for Revolut X crypto exchange trading, market data, and strategy backtesting
-version: 0.1.0
+version: 0.2.0
 slug: revolut_x_mcp
 url: https://github.com/rgafonso/ha-revolutx-mcp
 homeassistant: 2024.1.0

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+- Added a third auth mode, `ha_auth`, that validates bearer tokens against
+  Home Assistant's own native auth system
+  (`hass.auth.async_validate_access_token`) instead of this integration's own
+  token store. Root cause: Home Assistant core permanently registers
+  `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
+  (`homeassistant/components/auth/login_flow.py`, part of the always-loaded
+  `auth` component) pointing at its own `/auth/authorize` + `/auth/token`, on
+  every installation — no custom integration, including this one's own
+  `legacy_oauth` mode, can ever win that path. A client that does standard
+  OAuth discovery will always find HA's native AS, so `ha_auth` is the only
+  mode that reliably works with such clients; `legacy_oauth` is kept for
+  clients that skip discovery and take hardcoded authorize/token URLs.
+
 ## 0.1.0 — first release
 
 - **HACS custom_component** (`custom_components/revolutx_mcp`): runs in-process
