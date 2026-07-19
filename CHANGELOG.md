@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed `legacy_oauth`'s `/authorize` endpoint returning a bare 401 for every
+  real client, since it relied on `requires_auth = True` — which only accepts
+  requests that already carry a Home Assistant session cookie, something a
+  browser opened fresh from an external OAuth client's (e.g. Claude's) login
+  redirect never has. Replaced the old "renders its own consent form, gated by
+  a session cookie" approach with delegation to Home Assistant's own native
+  `/auth/authorize` login page (the same mechanism HA's mobile app and
+  documented OAuth clients use — no pre-registration needed, since
+  `client_id`/`redirect_uri` just need matching origins per IndieAuth). A new
+  `/authorize/callback` endpoint resumes the flow once that login completes:
+  it exchanges the code HA hands back at HA's own `/auth/token` (over
+  loopback, so it doesn't depend on the external hostname or reverse proxy) to
+  confirm the login succeeded, then issues this integration's own code and
+  redirects to the original client's `redirect_uri`. Verified end-to-end
+  (DCR → authorize redirect → simulated HA login → callback → PKCE token
+  exchange) against a full aiohttp test harness using Home Assistant's real
+  view-dispatch code; pending live confirmation against Claude. Only
+  `custom_components/revolutx_mcp`; the Supervisor add-on is unaffected.
+
 ## 0.3.1
 
 - Fixed `legacy_oauth`'s protected-resource metadata URL (introduced in 0.3.0)

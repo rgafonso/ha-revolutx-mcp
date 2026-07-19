@@ -44,9 +44,10 @@ import time
 from typing import Any
 from urllib.parse import urlencode
 
-from aiohttp import web
+from aiohttp import ClientError, web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     OAUTH_ACCESS_TOKEN_TTL,
@@ -160,43 +161,119 @@ def issue_token_pair(signing_key: bytes, client_id: str) -> dict[str, Any]:
     }
 
 
+# In-memory, single-process — holds an in-flight authorize request while the
+# browser is off delegating login to Home Assistant's own /auth/authorize.
+# Short TTL (matches OAUTH_AUTH_CODE_TTL); popped (one-shot) at the callback.
+_PENDING_REQUESTS: dict[str, dict[str, Any]] = {}
+
+
 class AuthorizeView(HomeAssistantView):
-    """GET renders a one-click consent confirmation, POST issues an auth code."""
+    """GET /authorize — the entry point an OAuth client (e.g. Claude) redirects
+    the user's browser to.
+
+    This does not implement its own login/consent UI. `requires_auth = True`
+    (the previous approach) assumed the browser already carried a Home
+    Assistant session cookie, which it generally doesn't when opened fresh from
+    an external client's OAuth flow — it just returned a bare 401. Instead this
+    stashes the incoming request's params under a nonce and redirects to Home
+    Assistant's own native `/auth/authorize` (frontend-rendered login page —
+    the same mechanism HA's mobile app and documented OAuth clients use, see
+    https://developers.home-assistant.io/docs/auth_api/), passing `client_id`
+    == our own base URL and `redirect_uri` == AuthorizeCallbackView's URL,
+    which indieauth.verify_redirect_uri accepts automatically since they share
+    an origin — no pre-registration needed. AuthorizeCallbackView resumes once
+    that login completes. Successfully logging into this Home Assistant
+    instance *is* the consent (see module docstring's security note); there is
+    no separate "Allow" click on top of that login screen.
+    """
 
     url = f"{ISSUER_PATH}/authorize"
     name = "api:revolutx_mcp:authorize"
-    requires_auth = True  # the HA login itself is the access-control boundary
+    requires_auth = False
+
+    def __init__(self, base_url_fn) -> None:
+        self._base_url_fn = base_url_fn
 
     async def get(self, request: web.Request) -> web.Response:
         params = request.query
-        html = f"""<!doctype html><html><body>
-<h3>Allow this client to access Revolut X MCP tools?</h3>
-<form method="post">
-<input type="hidden" name="client_id" value="{params.get('client_id', '')}">
-<input type="hidden" name="redirect_uri" value="{params.get('redirect_uri', '')}">
-<input type="hidden" name="state" value="{params.get('state', '')}">
-<input type="hidden" name="code_challenge" value="{params.get('code_challenge', '')}">
-<input type="hidden" name="code_challenge_method" value="{params.get('code_challenge_method', 'S256')}">
-<button type="submit">Allow</button>
-</form></body></html>"""
-        return web.Response(text=html, content_type="text/html")
-
-    async def post(self, request: web.Request) -> web.Response:
-        data = await request.post()
-        redirect_uri = str(data.get("redirect_uri", ""))
-        state = str(data.get("state", ""))
-        code_challenge = str(data.get("code_challenge", ""))
-        code_challenge_method = str(data.get("code_challenge_method", "S256"))
-        client_id = str(data.get("client_id", OAUTH_CLIENT_ID))
-
+        redirect_uri = params.get("redirect_uri", "")
+        code_challenge = params.get("code_challenge", "")
         if not redirect_uri or not code_challenge:
             return web.Response(status=400, text="Missing redirect_uri or code_challenge")
 
-        code = _issue_authorization_code(client_id, redirect_uri, code_challenge, code_challenge_method)
+        nonce = secrets.token_urlsafe(24)
+        _PENDING_REQUESTS[nonce] = {
+            "client_id": params.get("client_id", OAUTH_CLIENT_ID),
+            "redirect_uri": redirect_uri,
+            "state": params.get("state", ""),
+            "code_challenge": code_challenge,
+            "code_challenge_method": params.get("code_challenge_method", "S256"),
+            "expires": time.time() + OAUTH_AUTH_CODE_TTL,
+        }
+
+        base = self._base_url_fn().rstrip("/")
+        ha_authorize_url = f"{base}/auth/authorize?" + urlencode(
+            {
+                "response_type": "code",
+                "client_id": base,
+                "redirect_uri": f"{issuer_url(base)}/authorize/callback",
+                "state": nonce,
+            }
+        )
+        raise web.HTTPFound(ha_authorize_url)
+
+
+class AuthorizeCallbackView(HomeAssistantView):
+    """GET /authorize/callback — Home Assistant's own login page redirects here
+    once the user has logged in, with an HA-issued authorization code. That
+    code is exchanged at HA's own `/auth/token` (over loopback, to sidestep any
+    reverse-proxy quirks on the external hostname — this is a pure
+    server-to-server call) purely to confirm the login actually succeeded; the
+    resulting HA token itself isn't needed afterwards. On success, issues our
+    own authorization code for the original client and redirects to *its*
+    redirect_uri, completing the flow AuthorizeView started."""
+
+    url = f"{ISSUER_PATH}/authorize/callback"
+    name = "api:revolutx_mcp:authorize-callback"
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant, base_url_fn) -> None:
+        self._hass = hass
+        self._base_url_fn = base_url_fn
+
+    async def get(self, request: web.Request) -> web.Response:
+        nonce = request.query.get("state", "")
+        ha_code = request.query.get("code", "")
+        pending = _PENDING_REQUESTS.pop(nonce, None)
+        if pending is None or pending["expires"] < time.time():
+            return web.Response(status=400, text="Expired or invalid authorization request")
+        if not ha_code:
+            return web.Response(status=400, text="Home Assistant login did not return a code")
+
+        base = self._base_url_fn().rstrip("/")
+        port = self._hass.http.server_port
+        session = async_get_clientsession(self._hass)
+        try:
+            async with session.post(
+                f"http://127.0.0.1:{port}/auth/token",
+                data={"grant_type": "authorization_code", "code": ha_code, "client_id": base},
+            ) as resp:
+                if resp.status != 200:
+                    return web.Response(status=401, text="Home Assistant login failed")
+        except ClientError:
+            _LOGGER.exception("Failed to reach Home Assistant's own token endpoint")
+            return web.Response(status=502, text="Could not reach Home Assistant's own token endpoint")
+
+        code = _issue_authorization_code(
+            pending["client_id"],
+            pending["redirect_uri"],
+            pending["code_challenge"],
+            pending["code_challenge_method"],
+        )
         query = {"code": code}
-        if state:
-            query["state"] = state
-        raise web.HTTPFound(f"{redirect_uri}?{urlencode(query)}")
+        if pending["state"]:
+            query["state"] = pending["state"]
+        raise web.HTTPFound(f"{pending['redirect_uri']}?{urlencode(query)}")
 
 
 class TokenView(HomeAssistantView):
@@ -328,7 +405,8 @@ class ProtectedResourceMetadataView(HomeAssistantView):
 
 def async_register_views(hass: HomeAssistant, signing_key: bytes, base_url_fn) -> None:
     """Register the legacy-OAuth HTTP views with Home Assistant's HTTP component."""
-    hass.http.register_view(AuthorizeView())
+    hass.http.register_view(AuthorizeView(base_url_fn))
+    hass.http.register_view(AuthorizeCallbackView(hass, base_url_fn))
     hass.http.register_view(TokenView(hass, signing_key))
     hass.http.register_view(RegisterView())
     hass.http.register_view(AuthServerMetadataView(base_url_fn))
