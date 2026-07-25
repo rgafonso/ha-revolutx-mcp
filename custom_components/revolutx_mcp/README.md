@@ -21,6 +21,10 @@ for a given Revolut X account.
 - Exposes those tools two ways: through a Home Assistant **webhook** (reachable via
   Nabu Casa remote access or any reverse proxy already pointed at your HA
   instance), and optionally through a **standalone port** for direct LAN access.
+- Every tool declares MCP tool annotations (`readOnlyHint`, `destructiveHint`, etc.,
+  per the MCP spec) so clients that support it — including Claude's connector
+  settings screen — can separate read-only tools from the 4 trading tools in their
+  own permission UI.
 
 ## Install
 

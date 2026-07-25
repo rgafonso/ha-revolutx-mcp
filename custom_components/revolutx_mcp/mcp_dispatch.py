@@ -27,12 +27,27 @@ class Tool:
     input_schema: dict[str, Any]
     handler: Callable[[RevolutXClient, dict[str, Any]], Awaitable[Any]]
     requires_trading: bool = False
+    # MCP tool annotations (spec 2025-03-26+, unchanged through 2025-11-25) — hints only,
+    # clients must treat them as untrusted, but they're what lets a client like Claude's
+    # connector UI split tools into read-only vs write/delete permission buckets. Defaults
+    # mirror the spec's own defaults (err toward "assume it's a write" for anything left
+    # unset) rather than defaulting to the read-only-friendly values.
+    read_only_hint: bool = False
+    destructive_hint: bool = True
+    idempotent_hint: bool = False
+    open_world_hint: bool = True
 
     def mcp_definition(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
             "inputSchema": self.input_schema,
+            "annotations": {
+                "readOnlyHint": self.read_only_hint,
+                "destructiveHint": self.destructive_hint,
+                "idempotentHint": self.idempotent_hint,
+                "openWorldHint": self.open_world_hint,
+            },
         }
 
 
@@ -100,18 +115,30 @@ def _tools() -> list[Tool]:
             "Get all crypto and fiat account balances for the authenticated user.",
             _schema({}),
             lambda c, a: c.get_balances(),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_currencies",
             "Get configuration (name, scale, status) for all currencies on the exchange.",
             _schema({}),
             lambda c, a: c.get_currencies(),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_pairs",
             "Get configuration (min/max order size, step sizes, status) for all traded currency pairs.",
             _schema({}),
             lambda c, a: c.get_pairs(),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_active_orders",
@@ -134,6 +161,10 @@ def _tools() -> list[Tool]:
                 cursor=a.get("cursor"),
                 limit=a.get("limit"),
             ),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_historical_orders",
@@ -159,18 +190,30 @@ def _tools() -> list[Tool]:
                 cursor=a.get("cursor"),
                 limit=a.get("limit"),
             ),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_order",
             "Retrieve a specific order by its venue order ID.",
             _schema({"venue_order_id": _STR}, ["venue_order_id"]),
             lambda c, a: c.get_order(a["venue_order_id"]),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_order_fills",
             "Get the fills (trade executions) for a specific order.",
             _schema({"venue_order_id": _STR}, ["venue_order_id"]),
             lambda c, a: c.get_order_fills(a["venue_order_id"]),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_all_trades",
@@ -193,6 +236,10 @@ def _tools() -> list[Tool]:
                 cursor=a.get("cursor"),
                 limit=a.get("limit"),
             ),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_private_trades",
@@ -215,6 +262,10 @@ def _tools() -> list[Tool]:
                 cursor=a.get("cursor"),
                 limit=a.get("limit"),
             ),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_order_book",
@@ -227,6 +278,10 @@ def _tools() -> list[Tool]:
                 ["symbol"],
             ),
             lambda c, a: c.get_order_book(a["symbol"], limit=a.get("limit")),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_candles",
@@ -244,18 +299,30 @@ def _tools() -> list[Tool]:
             lambda c, a: c.get_candles(
                 a["symbol"], interval=a.get("interval"), since=a.get("since"), until=a.get("until")
             ),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_tickers",
             "Get the latest market data snapshot (bid/ask/mid/last price) for all or specific pairs.",
             _schema({"symbols": {**_STR, "description": "Comma-separated pairs, e.g. BTC-USD,ETH-USD"}}),
             lambda c, a: c.get_tickers(symbols=a.get("symbols")),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_public_last_trades",
             "Get the latest 100 trades executed on Revolut X. No authentication required.",
             _schema({}),
             lambda c, a: c.get_public_last_trades(),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "get_public_order_book",
@@ -263,6 +330,10 @@ def _tools() -> list[Tool]:
             "authentication required.",
             _schema({"symbol": {**_STR, "description": "e.g. BTC-USD"}}, ["symbol"]),
             lambda c, a: c.get_public_order_book(a["symbol"]),
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         # -- Orders (write) — gated behind the "Enable trading" option, see
         # mcp_dispatch.handle_message / __init__.py's CONF_TRADING_ENABLED ------
@@ -291,6 +362,10 @@ def _tools() -> list[Tool]:
             ),
             _place_order,
             requires_trading=True,
+            read_only_hint=False,
+            destructive_hint=False,
+            idempotent_hint=False,
+            open_world_hint=True,
         ),
         Tool(
             "replace_order",
@@ -318,6 +393,10 @@ def _tools() -> list[Tool]:
             ),
             _replace_order,
             requires_trading=True,
+            read_only_hint=False,
+            destructive_hint=True,
+            idempotent_hint=False,
+            open_world_hint=True,
         ),
         Tool(
             "cancel_order",
@@ -325,6 +404,10 @@ def _tools() -> list[Tool]:
             _schema({"venue_order_id": _STR}, ["venue_order_id"]),
             lambda c, a: c.cancel_order(a["venue_order_id"]),
             requires_trading=True,
+            read_only_hint=False,
+            destructive_hint=True,
+            idempotent_hint=False,
+            open_world_hint=True,
         ),
         Tool(
             "cancel_all_orders",
@@ -333,6 +416,10 @@ def _tools() -> list[Tool]:
             _schema({}),
             lambda c, a: c.cancel_all_orders(),
             requires_trading=True,
+            read_only_hint=False,
+            destructive_hint=True,
+            idempotent_hint=False,
+            open_world_hint=True,
         ),
         # -- Knowledge base (static content, always available) ------------------
         Tool(
@@ -341,6 +428,10 @@ def _tools() -> list[Tool]:
             "content. Use this if unsure which intent to pass to search_kb.",
             _schema({}),
             _list_kb_articles,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
         ),
         Tool(
             "search_kb",
@@ -352,6 +443,10 @@ def _tools() -> list[Tool]:
                 ["intent"],
             ),
             _search_kb,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
         ),
         # -- Grid strategy backtest (historical simulation, no live orders) ------
         Tool(
@@ -377,6 +472,10 @@ def _tools() -> list[Tool]:
                 ["symbol"],
             ),
             backtest.grid_backtest_tool,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
         Tool(
             "grid_optimize",
@@ -402,11 +501,18 @@ def _tools() -> list[Tool]:
                 ["symbol"],
             ),
             backtest.grid_optimize_tool,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
     ]
 
 
 TOOLS: dict[str, Tool] = {tool.name: tool for tool in _tools()}
+assert all(not t.read_only_hint for t in TOOLS.values() if t.requires_trading), (
+    "A trading (requires_trading) tool must never be marked read_only_hint=True"
+)
 
 
 def _error(request_id: Any, code: int, message: str) -> dict[str, Any]:

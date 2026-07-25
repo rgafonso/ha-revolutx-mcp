@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.1
+
+- Added MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+  `openWorldHint`) to every tool definition, and bumped the declared
+  `MCP_PROTOCOL_VERSION` from `2024-11-05` (which predates the annotations
+  feature entirely) to `2025-11-25`, the current latest spec revision —
+  confirmed by diffing the spec's own `ToolAnnotations`/`Tool` TypeScript
+  schema directly; annotations were introduced in `2025-03-26` and are
+  unchanged in substance through `2025-11-25`. Motivated by Claude's connector
+  settings screen, which shows a permission UI splitting a connected server's
+  tools into separately-toggleable "read-only" and "write/delete" buckets —
+  observed live on a Home Assistant connector, not yet available on this
+  integration since it declared no annotations at all. No official Anthropic
+  documentation states the exact bucketing algorithm, but the best available
+  evidence (the MCP project's own stated intent for `readOnlyHint` — letting
+  clients skip confirmation dialogs — plus third-party reports) points to
+  `readOnlyHint: true` mapping to the read-only bucket and anything else to
+  the write/delete bucket, which is what every tool here now declares
+  correctly: the 18 always-on read-only/informational tools (including
+  `grid_backtest`/`grid_optimize`, which only read candle data) get
+  `readOnlyHint: true`; the 4 tools gated behind `trading_enabled` get
+  `readOnlyHint: false` with `destructiveHint` set per tool (`true` for
+  `replace_order`/`cancel_order`/`cancel_all_orders`, since each invalidates
+  existing state; `false` for `place_order`, since it only adds new state).
+  Added a module-load-time assertion in `mcp_dispatch.py` so a future tool
+  added with `requires_trading=True` can never accidentally ship with
+  `read_only_hint=True`. Per the spec, annotations remain a hint clients must
+  treat as untrusted metadata, not an enforced guarantee.
+
 ## 0.4.0
 
 - Added optional order-placement tools (`place_order`, `replace_order`,

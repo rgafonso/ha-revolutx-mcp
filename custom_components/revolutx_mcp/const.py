@@ -39,5 +39,5 @@ OAUTH_AUTH_CODE_TTL = 5 * 60
 # client registration (RFC 7591 is only a SHOULD in the MCP auth spec, not a MUST).
 OAUTH_CLIENT_ID = "revolutx-mcp"
 
-MCP_PROTOCOL_VERSION = "2024-11-05"
+MCP_PROTOCOL_VERSION = "2025-11-25"
 SERVER_NAME = "Revolut X"
