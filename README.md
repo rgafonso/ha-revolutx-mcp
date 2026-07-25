@@ -56,6 +56,20 @@ component.
 
 The rest of this README documents the add-on in more detail.
 
+**Request flow:**
+
+```
+Claude Desktop (custom connector)
+    ↓ HTTP POST to your-nas-ip:5000
+Home Assistant (on your NAS)
+    ↓
+revolut-x-mcp add-on container
+    ├─ mcp-network-transport.cjs (HTTP wrapper)
+    └─ revolut-x-api/mcp (MCP server)
+        ↓
+    Revolut X REST API (HTTPS)
+```
+
 ---
 
 ## Features

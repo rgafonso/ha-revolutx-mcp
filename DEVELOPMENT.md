@@ -1,5 +1,16 @@
 # Development Guide
 
+## Add-on File Reference
+
+| File | Purpose | Notes |
+|------|---------|-------|
+| `repository.yaml` | Identifies this repo as a HA add-on repository | Required for the add-on store to show a proper name/maintainer |
+| `config.yaml` | Defines the addon for Home Assistant | Metadata, ports, config schema, image paths |
+| `Dockerfile` | Builds the container image | Clones revolut-x-api (pinned tag), builds MCP server, multi-arch support |
+| `entrypoint.sh` | Runs when container starts | Sets up credentials, starts services, handles logs |
+| `mcp-network-transport.cjs` | Bridges MCP stdio → HTTP | Spawns MCP process, exposes `/rpc` and `/health` endpoints |
+| `.github/workflows/build.yml` | Automated multi-arch builds | Runs on push/tag, publishes to ghcr.io |
+
 ## Local Testing
 
 ### Prerequisites
