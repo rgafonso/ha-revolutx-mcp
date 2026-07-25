@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.1
+
+- Added a `brand/` folder (`icon.png`, `icon@2x.png`, `logo.png`, `logo@2x.png`)
+  so the integration shows a real icon in Home Assistant's UI, via the new
+  [brands proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)
+  shipped in HA 2026.3. Confirmed directly against `home-assistant/core`
+  source (`components/brands/{__init__.py,const.py}`, `loader.py`) rather than
+  just the announcement post: `Integration.has_branding` is a `cached_property`
+  that checks `"brand" in self._top_level_files` — a plain filesystem check,
+  no `manifest.json` field required — and `ALLOWED_IMAGES` in
+  `components/brands/const.py` confirms these 4 filenames (plus `dark_*`
+  variants, not added here since our mark has an opaque background, not a
+  transparent one needing a dark-theme swap). Supersedes the icon/logo work
+  from earlier this session that only updated the repo root and README
+  images — this is the first mechanism that actually reaches HA's own
+  integrations-list UI without forking and PR'ing `home-assistant/brands`
+  (declined earlier as more process than it's worth for a single-maintainer
+  integration). No effect on HA versions before 2026.3 — the integrations
+  list simply keeps showing its existing generic placeholder there.
+
 ## 0.5.0
 
 - Added the first roadmap item from `ROADMAP.md` ("Native HA entities"): this

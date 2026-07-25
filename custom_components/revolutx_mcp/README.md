@@ -30,6 +30,12 @@ for a given Revolut X account.
 - Also exposes native Home Assistant entities (see [Entities](#entities) below) —
   balances, active orders, and service-health sensors — so this data shows up on
   dashboards, in History, and in automations without going through an MCP/LLM call.
+- Bundles its own icon (`brand/icon.png`, `brand/logo.png` + `@2x` variants) using
+  Home Assistant's [brands proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)
+  (HA 2026.3+) — no submission to the separate `home-assistant/brands` repo
+  needed. `homeassistant.loader.Integration.has_branding` just checks for a
+  `brand/` folder on disk; on HA versions older than 2026.3, the integrations
+  list falls back to a generic placeholder icon instead.
 
 ## Install
 
