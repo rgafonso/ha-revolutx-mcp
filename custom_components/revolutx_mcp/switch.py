@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, SUBENTRY_TYPE_GRID_BOT
+from .const import ATTR_CATEGORY, CATEGORY_STRATEGY, DOMAIN, SUBENTRY_TYPE_GRID_BOT
 from .device import device_info
 from .grid_bot import GridBotEngine
 
@@ -82,4 +82,5 @@ class RevolutXGridBotSwitch(SwitchEntity):
             "killed": self._engine.state.killed,
             "consecutive_errors": self._engine.state.consecutive_errors,
             "last_error": self._engine.state.last_error,
+            ATTR_CATEGORY: CATEGORY_STRATEGY,
         }

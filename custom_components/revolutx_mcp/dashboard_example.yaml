@@ -14,6 +14,21 @@
 # HACS > Frontend > search "auto-entities" > Download (HACS registers the
 # dashboard resource automatically), then reload the frontend.
 #
+# Both sections use auto-entities' `filter.template` (a Jinja template,
+# rather than the simpler `filter.include`/`exclude` list form) so each
+# card's `name` can be computed per entity — every entity here has
+# has_entity_name + a shared device, so its default friendly_name is
+# "Revolut X <whatever>"; the template strips that repeated device-name
+# prefix, and gives each group its own icon so tiles are recognizable at a
+# glance even before reading the section heading above them. Matching itself
+# is done on the `revolut_x_category` attribute every entity in this
+# integration carries (values: account/health/order/monitor/strategy) rather
+# than entity_id patterns or device membership — simpler and automatically
+# correct as new entities of a given category are added. The price-alert
+# template's `name` still assumes the device is named "Revolut X" (the
+# default) — if you've renamed it, adjust its `replace("Revolut X ", ...)`
+# call to match.
+#
 # Everything else (Account, Service health) uses fixed, predictable entity
 # IDs and needs no adjustment.
 #
@@ -37,19 +52,30 @@ views:
             heading: Balances
             heading_style: title
             icon: mdi:wallet-outline
-          # One tile per currency you hold, found by matching the balance
-          # sensors' entity_id pattern — no per-currency editing needed.
+          # One tile per currency you hold, found by matching
+          # revolut_x_category=account — no per-currency editing needed.
+          # name is rebuilt from the sensor's own unit_of_measurement (the
+          # currency code) rather than its full "Revolut X <currency>
+          # balance" friendly_name, so the device name isn't repeated on
+          # every tile; icon marks every tile in this section as a balance.
           - type: custom:auto-entities
             card:
               type: grid
-              columns: 3
+              columns: 1
               square: false
             card_param: cards
             filter:
-              include:
-                - entity_id: "sensor.revolut_x_*_balance"
-                  options:
-                    type: tile
+              template: >
+                [
+                {%- for e in states.sensor
+                    | selectattr('attributes.revolut_x_category', 'eq', 'account')
+                    | map(attribute='entity_id') %}
+                {'entity': '{{ e }}',
+                 'name': '{{ state_attr(e, "unit_of_measurement") }} balance',
+                 'icon': 'mdi:wallet-outline',
+                 'type': 'tile'},
+                {%- endfor %}
+                ]
             sort:
               method: entity_id
 
@@ -73,31 +99,34 @@ views:
             heading: Price alerts
             heading_style: title
             icon: mdi:bell-alert-outline
-          # One tile per alert rule you've created, found as every
-          # binary_sensor on the Revolut X device except the three fixed
-          # diagnostic ones below (which are excluded by entity_id since
-          # their IDs — unlike alert rules' — are fixed and known upfront).
-          # state_content adds the rule's own "why" explanation (e.g.
-          # current RSI value vs. the rule's threshold) under the state.
+          # One tile per alert rule you've created, found by matching
+          # revolut_x_category=monitor — automatically excludes the fixed
+          # diagnostic binary_sensors (webhook_registered etc.), which carry
+          # revolut_x_category=health instead. name strips the repeated
+          # "Revolut X " prefix from each rule's
+          # own friendly_name (its title, e.g. "BTC-EUR price above
+          # 1000000.0"); state_content adds the rule's own "why"
+          # explanation (e.g. current RSI value vs. the rule's threshold)
+          # under the state; icon marks every tile here as a price alert.
           - type: custom:auto-entities
             card:
               type: grid
-              columns: 2
+              columns: 1
               square: false
             card_param: cards
             filter:
-              include:
-                - domain: binary_sensor
-                  device: Revolut X
-                  options:
-                    type: tile
-                    state_content:
-                      - state
-                      - detail
-              exclude:
-                - entity_id: binary_sensor.revolut_x_webhook_registered
-                - entity_id: binary_sensor.revolut_x_direct_server_running
-                - entity_id: binary_sensor.revolut_x_trading_enabled
+              template: >
+                [
+                {%- for e in states.binary_sensor
+                    | selectattr('attributes.revolut_x_category', 'eq', 'monitor')
+                    | map(attribute='entity_id') %}
+                {'entity': '{{ e }}',
+                 'name': '{{ state_attr(e, "friendly_name").replace("Revolut X ", "") }}',
+                 'icon': 'mdi:bell-alert-outline',
+                 'state_content': ['state', 'detail'],
+                 'type': 'tile'},
+                {%- endfor %}
+                ]
             sort:
               method: name
 

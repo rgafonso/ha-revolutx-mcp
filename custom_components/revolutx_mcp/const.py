@@ -155,3 +155,13 @@ OAUTH_CLIENT_ID = "revolutx-mcp"
 
 MCP_PROTOCOL_VERSION = "2025-11-25"
 SERVER_NAME = "Revolut X"
+
+# Every entity carries this attribute so dashboards/automations can group or
+# filter by "kind of thing" without depending on domain, entity_id patterns,
+# or device membership (all of which already vary across entity types here).
+ATTR_CATEGORY = "revolut_x_category"
+CATEGORY_ACCOUNT = "account"  # balances
+CATEGORY_HEALTH = "health"  # service/connectivity signals, incl. the trading_enabled mirror
+CATEGORY_ORDER = "order"  # active-orders count
+CATEGORY_MONITOR = "monitor"  # price-alert rules
+CATEGORY_STRATEGY = "strategy"  # live grid bots

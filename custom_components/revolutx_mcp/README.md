@@ -124,7 +124,13 @@ trust the MCP client you're connecting and intend to use it for trading.
 
 ## Entities
 
-All entities group under one HA device ("Revolut X") per config entry.
+All entities group under one HA device ("Revolut X") per config entry, and
+every one of them carries a `revolut_x_category` attribute (`account`,
+`health`, `order`, `monitor`, or `strategy`) — a stable way to filter or
+group them (e.g. in a dashboard's `auto-entities` card, see
+[Dashboard](#dashboard) below) without depending on entity_id patterns,
+domain, or device membership, none of which line up cleanly with "kind of
+thing" on their own.
 
 - **Balances**: one sensor per currency held in the account (e.g. `sensor.revolut_x_btc_balance`),
   added dynamically as new currencies are first seen. State is the spendable
@@ -260,7 +266,9 @@ with a fixed, predictable entity ID. The two groups that grow over time —
 per-currency balance sensors and per-alert-rule sensors, the latter named
 after each rule's own title — are listed dynamically instead of hardcoded,
 via the community [auto-entities](https://github.com/thomasloven/lovelace-auto-entities)
-card (install via HACS → Frontend → search "auto-entities" → Download). The
+card (install via HACS → Frontend → search "auto-entities" → Download),
+filtering on each entity's `revolut_x_category` attribute rather than
+entity_id patterns. The
 [Entities](#entities) section above explains what each entity means. Import
 the dashboard via Settings → Dashboards → Add dashboard → New dashboard from
 scratch, then its three-dot menu → Edit in YAML.

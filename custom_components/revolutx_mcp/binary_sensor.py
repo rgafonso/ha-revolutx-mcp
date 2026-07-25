@@ -16,7 +16,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .alert_coordinator import RevolutXAlertCoordinator
-from .const import CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED, DOMAIN, SUBENTRY_TYPE_ALERT_RULE
+from .const import (
+    ATTR_CATEGORY,
+    CATEGORY_HEALTH,
+    CATEGORY_MONITOR,
+    CONF_TRADING_ENABLED,
+    DEFAULT_TRADING_ENABLED,
+    DOMAIN,
+    SUBENTRY_TYPE_ALERT_RULE,
+)
 from .device import device_info
 from .direct_server import DirectServer
 
@@ -59,6 +67,10 @@ class RevolutXWebhookRegisteredSensor(BinarySensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_webhook_registered"
         self._attr_device_info = device_info(entry)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CATEGORY: CATEGORY_HEALTH}
+
 
 class RevolutXDirectServerRunningSensor(BinarySensorEntity):
     """Whether the standalone direct-port server is bound and listening (off
@@ -77,6 +89,10 @@ class RevolutXDirectServerRunningSensor(BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self._direct_server.is_running
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CATEGORY: CATEGORY_HEALTH}
 
 
 class RevolutXTradingEnabledSensor(BinarySensorEntity):
@@ -100,6 +116,10 @@ class RevolutXTradingEnabledSensor(BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self._entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CATEGORY: CATEGORY_HEALTH}
 
 
 class RevolutXAlertRuleTriggeredSensor(CoordinatorEntity[RevolutXAlertCoordinator], BinarySensorEntity):
@@ -128,5 +148,9 @@ class RevolutXAlertRuleTriggeredSensor(CoordinatorEntity[RevolutXAlertCoordinato
     def extra_state_attributes(self) -> dict[str, Any]:
         state = self.coordinator.data.get(self._subentry_id) if self.coordinator.data else None
         if not state:
-            return {}
-        return {"detail": state.detail, "last_triggered": state.last_triggered}
+            return {ATTR_CATEGORY: CATEGORY_MONITOR}
+        return {
+            "detail": state.detail,
+            "last_triggered": state.last_triggered,
+            ATTR_CATEGORY: CATEGORY_MONITOR,
+        }

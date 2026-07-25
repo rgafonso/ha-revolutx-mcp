@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.1
+
+- Every entity now carries a `revolut_x_category` attribute
+  (`account`/`health`/`order`/`monitor`/`strategy`) — balances, active
+  orders, service-health/trading-enabled sensors, price-alert rules, and
+  live grid-bot entities respectively — so dashboards and automations can
+  filter/group by "kind of thing" without depending on entity_id patterns,
+  domain, or device membership.
+- `dashboard_example.yaml`: the Balances and Price alerts `auto-entities`
+  filters now match on `revolut_x_category` instead of entity_id
+  patterns/device membership — simpler, and automatically correct as new
+  entities of a given category are added. Each also drops the repeated
+  "Revolut X " device-name prefix from its tile's name (rebuilt per entity
+  via a `filter.template` Jinja expression instead of the plain
+  `include`/`exclude` list form) and gives every tile in a section a
+  category-matching icon, so tiles are recognizable at a glance without
+  reading the section heading.
+
 ## 0.9.0
 
 - Added **live grid-bot execution** (`grid_bot.py`, new `switch` platform,

@@ -12,7 +12,16 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_PAIR, DOMAIN, SUBENTRY_TYPE_GRID_BOT
+from .const import (
+    ATTR_CATEGORY,
+    CATEGORY_ACCOUNT,
+    CATEGORY_HEALTH,
+    CATEGORY_ORDER,
+    CATEGORY_STRATEGY,
+    CONF_PAIR,
+    DOMAIN,
+    SUBENTRY_TYPE_GRID_BOT,
+)
 from .coordinator import RevolutXDataUpdateCoordinator
 from .device import device_info
 from .grid_bot import GridBotEngine
@@ -108,6 +117,7 @@ class RevolutXBalanceSensor(CoordinatorEntity[RevolutXDataUpdateCoordinator], Se
             "reserved": balance.get("reserved"),
             "total": balance.get("total"),
             "staked": balance.get("staked"),
+            ATTR_CATEGORY: CATEGORY_ACCOUNT,
         }
 
 
@@ -135,7 +145,7 @@ class RevolutXActiveOrdersCountSensor(
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"orders": self.coordinator.data.active_orders}
+        return {"orders": self.coordinator.data.active_orders, ATTR_CATEGORY: CATEGORY_ORDER}
 
 
 class _RequestStatsSensor(SensorEntity):
@@ -159,6 +169,10 @@ class _RequestStatsSensor(SensorEntity):
     @callback
     def _handle_update(self) -> None:
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CATEGORY: CATEGORY_HEALTH}
 
 
 class RevolutXRequestCountSensor(_RequestStatsSensor):
@@ -229,6 +243,7 @@ class RevolutXGridBotPnlSensor(_GridBotEntity, SensorEntity):
         return {
             "position_base": self._engine.state.position_base,
             "committed_quote": self._engine.state.committed_quote,
+            ATTR_CATEGORY: CATEGORY_STRATEGY,
         }
 
 
@@ -262,4 +277,5 @@ class RevolutXGridBotStatusSensor(_GridBotEntity, SensorEntity):
             "last_tick": self._engine.state.last_tick,
             "consecutive_errors": self._engine.state.consecutive_errors,
             "last_error": self._engine.state.last_error,
+            ATTR_CATEGORY: CATEGORY_STRATEGY,
         }
