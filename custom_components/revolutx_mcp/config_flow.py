@@ -21,6 +21,7 @@ from .const import (
     CONF_EXTERNAL_URL,
     CONF_LOG_LEVEL,
     CONF_OAUTH_SIGNING_KEY,
+    CONF_POLL_INTERVAL,
     CONF_PRIVATE_KEY,
     CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
@@ -28,9 +29,12 @@ from .const import (
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
     DEFAULT_LOG_LEVEL,
+    DEFAULT_POLL_INTERVAL_MINUTES,
     DEFAULT_TRADING_ENABLED,
     DOMAIN,
     LOG_LEVELS,
+    POLL_INTERVAL_MAX_MINUTES,
+    POLL_INTERVAL_MIN_MINUTES,
 )
 from .revolut_client import RevolutXAPIError, RevolutXAuthError, RevolutXClient, load_private_key
 from .urls import direct_connect_url, webhook_connect_url
@@ -95,6 +99,7 @@ class RevolutXMCPConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_DIRECT_SERVER_PORT: DEFAULT_DIRECT_SERVER_PORT,
                         CONF_EXTERNAL_URL: "",
                         CONF_LOG_LEVEL: DEFAULT_LOG_LEVEL,
+                        CONF_POLL_INTERVAL: DEFAULT_POLL_INTERVAL_MINUTES,
                     },
                 )
 
@@ -142,6 +147,13 @@ class RevolutXMCPOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_LOG_LEVEL, default=current.get(CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL)
                 ): vol.In(LOG_LEVELS),
+                vol.Required(
+                    CONF_POLL_INTERVAL,
+                    default=current.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL_MINUTES),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=POLL_INTERVAL_MIN_MINUTES, max=POLL_INTERVAL_MAX_MINUTES),
+                ),
             }
         )
 

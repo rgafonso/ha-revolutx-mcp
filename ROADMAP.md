@@ -10,38 +10,6 @@ backtesting as long-standing goals too, but the direction below is specific to
 building these *inside* Home Assistant, not porting the add-on's Node/CLI
 approach — see "Why not port the CLI's model" below.
 
-## Native HA entities (service status + account/market data)
-
-Today `PLATFORMS: list[str] = []` in `__init__.py` — this integration exposes
-zero Home Assistant entities. Everything is only reachable on-demand through
-an MCP tool call from an LLM conversation; there's nothing to put on a
-dashboard, chart in History, or trigger an automation from. Two entity groups
-worth adding:
-
-- **Service/integration health**: entities describing this integration's own
-  operation, not Revolut X data — e.g. a `binary_sensor` for whether the
-  webhook/direct server is up, a sensor counting MCP requests served (plus
-  last-served timestamp), and a sensor mirroring the `trading_enabled` config
-  option so it's visible on a dashboard instead of buried in Options. Useful
-  for noticing "my MCP server silently stopped responding" without checking
-  logs.
-- **Account/market data**: sensors for `get_balances` (one sensor per
-  currency, or a single sensor with the full balance dict as attributes for a
-  simpler first pass) and `get_active_orders` (a count sensor with the order
-  list as an attribute), so these show up in dashboards/History/automations
-  instead of being reachable only through a conversation. A per-symbol ticker
-  sensor is a natural extension, scoped to a user-configured pair list rather
-  than every tradeable pair.
-
-Direction: reuse a `DataUpdateCoordinator` for the polling — plausibly the
-*same* coordinator proposed for price-alert monitoring below, so balance/order
-polling and monitor-alert evaluation share one Revolut X API call cadence
-instead of polling independently. Keep the interval conservative and
-user-configurable; Revolut X's documented rate limit is 1000 requests/day for
-limit orders specifically, and general endpoint limits aren't fully
-documented, so defaulting to minutes rather than seconds is the safer starting
-point.
-
 ## Price-alert monitoring
 
 The upstream `revx` CLI's `monitor` command group (price thresholds, RSI,
@@ -51,9 +19,10 @@ price-change, ATR-breakout) has no equivalent in this integration today.
 Direction if/when this gets built: use Home Assistant's own primitives instead
 of replicating the CLI's architecture:
 
-- **Polling**: a `DataUpdateCoordinator` on a configurable interval, not a
-  hand-rolled `while` loop — HA already solves "periodic background work
-  inside an always-on process" for us.
+- **Polling**: `RevolutXDataUpdateCoordinator` (`coordinator.py`, added for
+  balance/active-order entities) is a plausible base to extend with
+  ticker/candle fetches, rather than polling independently with a second
+  `DataUpdateCoordinator` or a hand-rolled `while` loop.
 - **Delivery**: HA's own `notify.*` platform ecosystem (mobile app push,
   email, any of the dozens of existing notify integrations), not a
   hardcoded Telegram integration. Telegram is still available *through* HA's
@@ -85,9 +54,10 @@ with the simulation tools that already exist.
 
 ## Dashboard for visualization
 
-Depends on the three items above existing first — there's nothing to
-visualize until entities, monitors, and a live grid bot are actually there.
-Once they are, a bundled example dashboard (or a documented Lovelace YAML
+Native HA entities now exist (balances, active orders, service health), so a
+basic dashboard tying those together is buildable today — but still depends on
+the two items above for the rest of the intended scope: monitors and a live
+grid bot. Once they exist too, a bundled example dashboard (or a documented Lovelace YAML
 snippet in the README) tying them together would be worth adding: account
 balances/orders, which monitors are currently armed and how close they are to
 triggering, and grid-bot state (current price's position within the grid,

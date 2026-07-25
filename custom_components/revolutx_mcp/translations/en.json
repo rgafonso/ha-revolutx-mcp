@@ -30,7 +30,8 @@
           "direct_server_enabled": "Enable direct-port server",
           "direct_server_port": "Direct server port",
           "external_url": "External URL override",
-          "log_level": "Log level"
+          "log_level": "Log level",
+          "poll_interval": "Account data poll interval (minutes)"
         },
         "data_description": {
           "auth_mode": "\"none\": the URL above is the credential. \"legacy_oauth\" (recommended for OAuth clients like Claude): this integration's own OAuth server, with self-registration (DCR) so no manual Client ID/Secret is needed. \"ha_auth\": validates your Home Assistant login instead, via Home Assistant's own native OAuth server — no self-registration support, so most generic OAuth clients can't complete it.",
@@ -38,8 +39,36 @@
           "direct_server_enabled": "Also listen on a dedicated port on the local network, bypassing the Home Assistant webhook.",
           "direct_server_port": "TCP port for the direct server, only used when it's enabled above.",
           "external_url": "Overrides the auto-detected base URL used for OAuth discovery metadata. Leave blank to auto-detect from Home Assistant's own URL settings.",
-          "log_level": "Verbosity of this integration's log messages."
+          "log_level": "Verbosity of this integration's log messages.",
+          "poll_interval": "How often the balance/active-orders sensors refresh. Revolut X's documented rate limits aren't generous (1000 requests/day for limit orders specifically), so minutes rather than seconds is the safe default."
         }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "balance": {
+        "name": "{currency} balance"
+      },
+      "active_orders_count": {
+        "name": "Active orders"
+      },
+      "requests_served": {
+        "name": "MCP requests served"
+      },
+      "last_request_served": {
+        "name": "Last MCP request served"
+      }
+    },
+    "binary_sensor": {
+      "webhook_registered": {
+        "name": "Webhook registered"
+      },
+      "direct_server_running": {
+        "name": "Direct server running"
+      },
+      "trading_enabled": {
+        "name": "Trading enabled"
       }
     }
   }

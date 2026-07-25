@@ -14,8 +14,10 @@ Home Assistant through HACS, runs **in-process**, and works on **every** Home
 Assistant installation type — Home Assistant OS, Supervised, Container, and Core.
 No separate container, no access token to manage by default. It covers market
 data, balances, orders/trades history, grid-strategy backtesting, and a
-help-topic lookup; order placement is available but off by default (see its own
-README for the full scope, the trading toggle, and auth options).
+help-topic lookup, exposed both as MCP tools and as native HA entities
+(balance/order/service-health sensors) for dashboards and automations; order
+placement is available but off by default (see its own README for the full
+scope, the trading toggle, and auth options).
 
 **Add it to Home Assistant via HACS (the preferred install):**
 

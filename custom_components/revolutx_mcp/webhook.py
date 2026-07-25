@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, SERVER_NAME
 from .revolut_client import RevolutXClient
-from .transport import handle_mcp_http
+from .transport import RequestStats, handle_mcp_http
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,10 +30,18 @@ def async_register_webhook(
     signing_key: bytes,
     trading_enabled: bool = False,
     resource_metadata_url: str | None = None,
+    stats: RequestStats | None = None,
 ) -> None:
     async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         return await handle_mcp_http(
-            request, client, auth_mode, signing_key, hass, trading_enabled, resource_metadata_url
+            request,
+            client,
+            auth_mode,
+            signing_key,
+            hass,
+            trading_enabled,
+            resource_metadata_url,
+            stats,
         )
 
     webhook.async_register(hass, DOMAIN, SERVER_NAME, webhook_id, _handler)

@@ -7,6 +7,7 @@ import logging
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
@@ -30,15 +31,17 @@ from .const import (
     DEFAULT_TRADING_ENABLED,
     DOMAIN,
 )
+from .coordinator import RevolutXDataUpdateCoordinator
 from .direct_server import DirectServer
 from .oauth_legacy import async_register_views, issuer_url, webhook_resource_metadata_url
 from .revolut_client import RevolutXClient, load_private_key
+from .transport import RequestStats, request_served_signal
 from .urls import direct_connect_url, webhook_connect_url
 from .webhook import async_register_webhook, async_unregister_webhook
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = []
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 # Legacy-OAuth HTTP views (/authorize, /token, /.well-known/*) are registered once,
 # globally, on Home Assistant's own HTTP app — not once per config entry. This
@@ -51,9 +54,17 @@ _OAUTH_VIEWS_KEY = f"{DOMAIN}_oauth_views_registered"
 class RuntimeData:
     """Per-config-entry runtime objects, stored in hass.data."""
 
-    def __init__(self, client: RevolutXClient, direct_server: DirectServer) -> None:
+    def __init__(
+        self,
+        client: RevolutXClient,
+        direct_server: DirectServer,
+        coordinator: RevolutXDataUpdateCoordinator,
+        stats: RequestStats,
+    ) -> None:
         self.client = client
         self.direct_server = direct_server
+        self.coordinator = coordinator
+        self.stats = stats
 
 
 def _base_url(hass: HomeAssistant, entry: ConfigEntry) -> str:
@@ -74,6 +85,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     webhook_id = entry.data[CONF_WEBHOOK_ID]
     base = _base_url(hass, entry)
 
+    stats = RequestStats(signal=request_served_signal(entry.entry_id))
+
     webhook_resource_metadata = (
         webhook_resource_metadata_url(base, webhook_id)
         if auth_mode == AUTH_MODE_LEGACY_OAUTH
@@ -87,6 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         signing_key,
         trading_enabled=trading_enabled,
         resource_metadata_url=webhook_resource_metadata,
+        stats=stats,
     )
 
     if auth_mode == AUTH_MODE_LEGACY_OAUTH:
@@ -115,6 +129,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 signing_key,
                 trading_enabled=trading_enabled,
                 issuer=issuer,
+                stats=stats,
             )
         except OSError as err:
             async_unregister_webhook(hass, webhook_id)
@@ -122,8 +137,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"Could not bind Revolut X MCP direct server to port {port}"
             ) from err
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = RuntimeData(client, direct_server)
+    coordinator = RevolutXDataUpdateCoordinator(hass, entry, client)
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = RuntimeData(
+        client, direct_server, coordinator, stats
+    )
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _notify_connect_urls(hass, entry)
     return True
@@ -154,6 +175,9 @@ def _notify_connect_urls(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        return False
     runtime: RuntimeData = hass.data[DOMAIN].pop(entry.entry_id)
     async_unregister_webhook(hass, entry.data[CONF_WEBHOOK_ID])
     await runtime.direct_server.async_stop()

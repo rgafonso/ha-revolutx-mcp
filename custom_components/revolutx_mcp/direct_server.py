@@ -16,7 +16,7 @@ from aiohttp import web
 from homeassistant.core import HomeAssistant
 
 from .revolut_client import RevolutXClient
-from .transport import handle_mcp_http
+from .transport import RequestStats, handle_mcp_http
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +28,10 @@ class DirectServer:
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
 
+    @property
+    def is_running(self) -> bool:
+        return self._site is not None
+
     async def async_start(
         self,
         hass: HomeAssistant,
@@ -38,6 +42,7 @@ class DirectServer:
         signing_key: bytes,
         trading_enabled: bool = False,
         issuer: str | None = None,
+        stats: RequestStats | None = None,
     ) -> None:
         # RFC 9728 metadata for this port is served on this same port (the resource's
         # own origin) even though the authorization server itself — `issuer`, built
@@ -47,7 +52,7 @@ class DirectServer:
         async def _handler(request: web.Request) -> web.Response:
             hint = f"http://{request.host}{resource_metadata_path}"
             return await handle_mcp_http(
-                request, client, auth_mode, signing_key, hass, trading_enabled, hint
+                request, client, auth_mode, signing_key, hass, trading_enabled, hint, stats
             )
 
         async def _resource_metadata(request: web.Request) -> web.Response:

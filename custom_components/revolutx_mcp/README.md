@@ -27,6 +27,9 @@ for a given Revolut X account.
   per the MCP spec) so clients that support it — including Claude's connector
   settings screen — can separate read-only tools from the 4 trading tools in their
   own permission UI.
+- Also exposes native Home Assistant entities (see [Entities](#entities) below) —
+  balances, active orders, and service-health sensors — so this data shows up on
+  dashboards, in History, and in automations without going through an MCP/LLM call.
 
 ## Install
 
@@ -109,6 +112,31 @@ There is no dry-run mode or second confirmation step beyond the toggle itself �
 each tool's description asks the calling LLM to confirm the details with you
 first, but that's a hint the client may or may not honor. Only enable this if you
 trust the MCP client you're connecting and intend to use it for trading.
+
+## Entities
+
+All entities group under one HA device ("Revolut X") per config entry.
+
+- **Balances**: one sensor per currency held in the account (e.g. `sensor.revolut_x_btc_balance`),
+  added dynamically as new currencies are first seen. State is the spendable
+  ("available") amount; `reserved`/`total`/`staked` are attributes. A currency
+  that disappears from a later poll goes `unavailable` rather than being removed.
+- **Active orders**: a count sensor, with the raw order list as an attribute.
+- **Service health**: an MCP request-count sensor and a last-request-served
+  timestamp sensor (both push-updated on every successfully authenticated,
+  well-formed MCP call) — these are the useful "did my server silently stop
+  responding" signal. Two diagnostic binary sensors (`webhook_registered`,
+  `direct_server_running`) exist too, but read their own docstrings before
+  relying on them: `webhook_registered` only ever means "this config entry is
+  loaded," not "reachable over the network."
+- **Trading enabled**: mirrors the `trading_enabled` options-flow toggle as a
+  diagnostic binary sensor, so it's visible on a dashboard instead of only in
+  Options.
+
+Balance/active-order polling interval is configurable in Options → **Account
+data poll interval** (default 5 minutes) — kept conservative since Revolut X's
+documented rate limits aren't generous (1000 requests/day for limit orders
+specifically).
 
 ## Grid backtest tools
 

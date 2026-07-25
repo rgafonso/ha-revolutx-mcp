@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.5.0
+
+- Added the first roadmap item from `ROADMAP.md` ("Native HA entities"): this
+  integration now exposes real Home Assistant entities instead of being reachable
+  only through an MCP tool call. Was `PLATFORMS: list[str] = []` since 0.1.0 —
+  now `[Platform.SENSOR, Platform.BINARY_SENSOR]`, all grouped under one HA
+  device per config entry.
+  - **Account data** (`sensor.py`, coordinator-polled): one balance sensor per
+    currency held in the account, dynamically added as new currencies are first
+    seen and never torn down if a currency later disappears — they go
+    `unavailable` instead, to avoid churning the entity registry or breaking
+    History continuity. State is the spendable ("available") amount;
+    reserved/total/staked are attributes. Plus an active-orders count sensor
+    (raw order list as an attribute).
+  - **Service health** (`sensor.py`/`binary_sensor.py`, push-updated): an MCP
+    request-count sensor and a last-request-served timestamp sensor, newly
+    instrumented in `transport.py`'s shared request handler (counted only for
+    requests that pass auth and parse as JSON-RPC, so scanner/noise traffic
+    against an open direct-server port doesn't inflate the counter) — these are
+    the actually useful "did my MCP server silently stop responding" signal per
+    the roadmap's own stated motivation, not the two structural binary sensors
+    below, which are documented as weaker signals in their own docstrings
+    (webhook "registered" only ever means "this config entry is loaded", not
+    "network reachable"; direct-server "running" is a real bind-state check).
+    Also mirrors `trading_enabled` as a diagnostic binary sensor so it's
+    visible on a dashboard instead of buried in Options.
+  - New `coordinator.py`: `RevolutXDataUpdateCoordinator` polls
+    `get_balances`/`get_active_orders` on a new configurable
+    **"Account data poll interval"** options-flow field (`poll_interval`,
+    default 5 minutes, 1–1440 range) — deliberately kept generic (not
+    balance-specific) so a later price-alert monitor (also on `ROADMAP.md`)
+    could extend the same poll cycle instead of polling independently. Maps
+    `RevolutXAuthError` → `ConfigEntryAuthFailed` and `RevolutXAPIError` →
+    `UpdateFailed`. No new plumbing needed for the interval to take effect —
+    it reuses the existing reload-on-options-change update listener.
+  - `manifest.json`: `iot_class` changed `local_push` → `local_polling`, since
+    every new entity except the two push-updated request-tracking sensors is
+    coordinator/poll-driven, and `iot_class` has no combined push+poll value.
+  - Added `tests/test_coordinator.py` (4 tests: balance/order shaping, empty
+    responses, both error-mapping paths) — pure `unittest`, no live HA
+    instance, same approach as `test_backtest.py`. Entity-platform wiring
+    itself (`async_add_entities`, device/entity registry) has no automated
+    test — this repo doesn't depend on `pytest-homeassistant-custom-component`
+    — but was manually exercised end-to-end via a scripted simulation of both
+    platforms' `async_setup_entry` against a mocked coordinator/hass.data,
+    confirming all 5 sensor entities and 3 binary sensor entities construct
+    and read back correct values before this was verified live.
+
 ## 0.4.1
 
 - Added MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,

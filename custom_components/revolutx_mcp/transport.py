@@ -2,18 +2,45 @@
 the standalone direct-port server."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 import logging
 from typing import Any
 
 from aiohttp import web
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.util import dt as dt_util
 
-from .const import AUTH_MODE_HA_AUTH, AUTH_MODE_LEGACY_OAUTH
+from .const import AUTH_MODE_HA_AUTH, AUTH_MODE_LEGACY_OAUTH, DOMAIN
 from .mcp_dispatch import handle_message
 from .oauth_legacy import validate_access_token
 from .revolut_client import RevolutXClient
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def request_served_signal(entry_id: str) -> str:
+    return f"{DOMAIN}_{entry_id}_request_served"
+
+
+@dataclass
+class RequestStats:
+    """Push-updated counters behind the request-count/last-served sensors —
+    mutated inline from the request handler, not on a poll cycle like
+    RevolutXDataUpdateCoordinator. Recorded only for requests that pass auth
+    and parse as a JSON-RPC object, so unauthenticated scanner/noise traffic
+    against an open direct-server port doesn't inflate a counter meant to
+    answer "is my MCP client actually talking to it"."""
+
+    signal: str
+    count: int = 0
+    last_served: datetime | None = None
+
+    def record(self, hass: HomeAssistant) -> None:
+        self.count += 1
+        self.last_served = dt_util.utcnow()
+        async_dispatcher_send(hass, self.signal)
 
 
 def _unauthorized(reason: str, resource_metadata_url: str | None = None) -> web.Response:
@@ -67,6 +94,7 @@ async def handle_mcp_http(
     hass: HomeAssistant,
     trading_enabled: bool = False,
     resource_metadata_url: str | None = None,
+    stats: RequestStats | None = None,
 ) -> web.Response:
     """Validate auth (if configured) and dispatch an MCP JSON-RPC request body.
 
@@ -94,6 +122,9 @@ async def handle_mcp_http(
             {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Invalid Request"}},
             status=400,
         )
+
+    if stats is not None:
+        stats.record(hass)
 
     response = await handle_message(client, message, trading_enabled)
     if response is None:
