@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.2
+
+- Every Revolut X REST API call made by `revolut_client.py` is now logged at
+  DEBUG level (method, path, query, status, duration; response body too on
+  non-2xx) — silent by default, but gives full request tracing once you turn
+  on debug logging for this integration. Auth headers (API key, signature)
+  are never logged.
+- `dashboard_example.yaml`: the Balances and Price alerts `auto-entities`
+  filters now use the native `filter.include`/`options` form instead of a
+  `filter.template` Jinja expression to build each tile's name/icon from
+  entity metadata directly.
+
 ## 0.9.1
 
 - Every entity now carries a `revolut_x_category` attribute

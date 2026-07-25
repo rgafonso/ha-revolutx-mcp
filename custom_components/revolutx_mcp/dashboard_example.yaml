@@ -14,20 +14,17 @@
 # HACS > Frontend > search "auto-entities" > Download (HACS registers the
 # dashboard resource automatically), then reload the frontend.
 #
-# Both sections use auto-entities' `filter.template` (a Jinja template,
-# rather than the simpler `filter.include`/`exclude` list form) so each
-# card's `name` can be computed per entity — every entity here has
+# Both sections match entities via `filter.include`'s `attributes` clause on
+# the `revolut_x_category` attribute every entity in this integration
+# carries (values: account/health/order/monitor/strategy) rather than
+# entity_id patterns or device membership — simpler and automatically
+# correct as new entities of a given category are added. Each card's
+# `options.name` is built natively from entity metadata (`type: entity`,
+# optionally combined with `type: detail` for a second line) so the
+# repeated "Revolut X " device-name prefix — every entity here has
 # has_entity_name + a shared device, so its default friendly_name is
-# "Revolut X <whatever>"; the template strips that repeated device-name
-# prefix, and gives each group its own icon so tiles are recognizable at a
-# glance even before reading the section heading above them. Matching itself
-# is done on the `revolut_x_category` attribute every entity in this
-# integration carries (values: account/health/order/monitor/strategy) rather
-# than entity_id patterns or device membership — simpler and automatically
-# correct as new entities of a given category are added. The price-alert
-# template's `name` still assumes the device is named "Revolut X" (the
-# default) — if you've renamed it, adjust its `replace("Revolut X ", ...)`
-# call to match.
+# "Revolut X <whatever>" — never shows up on a tile, with no Jinja template
+# or device-name assumption to keep in sync if you rename the device.
 #
 # Everything else (Account, Service health) uses fixed, predictable entity
 # IDs and needs no adjustment.
@@ -52,12 +49,6 @@ views:
             heading: Balances
             heading_style: title
             icon: mdi:wallet-outline
-          # One tile per currency you hold, found by matching
-          # revolut_x_category=account — no per-currency editing needed.
-          # name is rebuilt from the sensor's own unit_of_measurement (the
-          # currency code) rather than its full "Revolut X <currency>
-          # balance" friendly_name, so the device name isn't repeated on
-          # every tile; icon marks every tile in this section as a balance.
           - type: custom:auto-entities
             card:
               type: grid
@@ -65,19 +56,18 @@ views:
               square: false
             card_param: cards
             filter:
-              template: >
-                [
-                {%- for e in states.sensor
-                    | selectattr('attributes.revolut_x_category', 'eq', 'account')
-                    | map(attribute='entity_id') %}
-                {'entity': '{{ e }}',
-                 'name': '{{ state_attr(e, "unit_of_measurement") }} balance',
-                 'icon': 'mdi:wallet-outline',
-                 'type': 'tile'},
-                {%- endfor %}
-                ]
+              include:
+                - options:
+                    type: tile
+                    icon: mdi:cash
+                    name:
+                      type: entity
+                  attributes:
+                    revolut_x_category: account
+            grid_options:
+              columns: full
             sort:
-              method: entity_id
+              method: name
 
       - type: grid
         cards:
@@ -102,12 +92,11 @@ views:
           # One tile per alert rule you've created, found by matching
           # revolut_x_category=monitor — automatically excludes the fixed
           # diagnostic binary_sensors (webhook_registered etc.), which carry
-          # revolut_x_category=health instead. name strips the repeated
-          # "Revolut X " prefix from each rule's
-          # own friendly_name (its title, e.g. "BTC-EUR price above
-          # 1000000.0"); state_content adds the rule's own "why"
-          # explanation (e.g. current RSI value vs. the rule's threshold)
-          # under the state; icon marks every tile here as a price alert.
+          # revolut_x_category=health instead. name's first line is the
+          # rule's own friendly_name/title (e.g. "BTC-EUR price above
+          # 1000000.0"); the second (`type: detail`) line adds the rule's
+          # own "why" explanation (e.g. current RSI value vs. the rule's
+          # threshold).
           - type: custom:auto-entities
             card:
               type: grid
@@ -115,18 +104,14 @@ views:
               square: false
             card_param: cards
             filter:
-              template: >
-                [
-                {%- for e in states.binary_sensor
-                    | selectattr('attributes.revolut_x_category', 'eq', 'monitor')
-                    | map(attribute='entity_id') %}
-                {'entity': '{{ e }}',
-                 'name': '{{ state_attr(e, "friendly_name").replace("Revolut X ", "") }}',
-                 'icon': 'mdi:bell-alert-outline',
-                 'state_content': ['state', 'detail'],
-                 'type': 'tile'},
-                {%- endfor %}
-                ]
+              include:
+                - options:
+                    type: tile
+                    name:
+                      - type: entity
+                      - type: detail
+                  attributes:
+                    revolut_x_category: monitor
             sort:
               method: name
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 from typing import Any
 
@@ -23,6 +24,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from homeassistant.core import HomeAssistant
 
 from .const import REVX_API_BASE
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RevolutXAuthError(Exception):
@@ -116,13 +119,25 @@ class RevolutXClient:
                 "X-Revx-Signature": signature,
             }
 
+        start = time.monotonic()
         async with self._session.request(
             method, url, headers=headers, data=body_str if body is not None else None
         ) as resp:
             text = await resp.text()
+            elapsed_ms = (time.monotonic() - start) * 1000
+            _LOGGER.debug(
+                "Revolut X API %s %s%s -> %s (%.0fms)",
+                method,
+                path,
+                f"?{query}" if query else "",
+                resp.status,
+                elapsed_ms,
+            )
             if resp.status in (401, 403):
+                _LOGGER.debug("Revolut X API error response body: %s", text[:500])
                 raise RevolutXAuthError(text or f"HTTP {resp.status}")
             if resp.status >= 400:
+                _LOGGER.debug("Revolut X API error response body: %s", text[:500])
                 raise RevolutXAPIError(resp.status, text)
             if not text:
                 return None
