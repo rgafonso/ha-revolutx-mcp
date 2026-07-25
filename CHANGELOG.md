@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.9.0
+
+- Added **live grid-bot execution** (`grid_bot.py`, new `switch` platform,
+  new Config Subentry type `grid_bot`), completing ROADMAP.md's "Live
+  grid-bot execution" item. Add a bot from the integration's entry page (one
+  per pair, same "Add X" pattern as price-alert rules); it rests real limit
+  buy orders below the current price at each grid level and, as Revolut X
+  fills them, places the mirror order one level up/down — delegating
+  price-crossing detection to the exchange's own matching engine rather than
+  simulating it, unlike `grid_backtest`'s candle-driven simulation (whose
+  `create_grid()` grid-spacing math this reuses, but not its closure-based
+  simulation loop, which has no incremental "process one event" API suited
+  to live order-fill-driven execution).
+- **Safety design**, since an always-on bot placing orders on its own
+  schedule needed something the existing `trading_enabled` toggle alone
+  didn't cover: two-factor arming (the entry's `trading_enabled` option AND
+  the bot's own switch, re-checked every tick — not just at the UI layer);
+  every order namespaced to its own bot via `client_order_id`, so a bot only
+  ever reads/cancels orders it placed itself and never calls
+  `cancel_all_orders`; a hard investment cap enforced before every new buy;
+  a consecutive-error kill switch (default 5) that stops the bot, cancels
+  nothing further (to avoid hammering a possibly-failing API), and notifies
+  — no auto-recovery, a human must re-arm; and a restart-resume policy that
+  always reconciles P&L/position immediately after an HA restart but, by
+  default, does not resume placing new orders until the user notices and
+  turns the bot back on (a same-process options reload, as opposed to a
+  genuine restart, resumes unconditionally — detected via a domain-level
+  `hass.data` marker set on first setup in the process). "Stop" cancels a
+  bot's resting orders but never touches its already-filled position —
+  documented prominently since it's the most likely point of confusion.
+- v1 scope deliberately excludes `split_investment`/`trailing_up` (both
+  would need cancelling/replacing a whole grid's worth of resting orders
+  mid-flight) and treats partial fills as not-yet-filled — left for a later
+  iteration once the basic loop is proven live. `stop_loss_price` is
+  included, simplified to cancel-and-stop rather than a full liquidate.
+- Two new entities per bot alongside the switch: a P&L sensor
+  (`realized_pnl`, `position_base`, `committed_quote`) and a status sensor
+  whose `trade_log`/`grid_levels` attributes are the "log" (state changes
+  land in HA's Logbook/History automatically, same mechanism the price-alert
+  binary_sensor already relies on) and the raw data a future
+  grid-vs-price dashboard visualization would consume (see `ROADMAP.md`'s
+  updated "Dashboard for visualization" section — that visualization itself
+  is still an open question, this just ships the entities it would read).
+- Tests: 13 new engine tests (`tests/test_grid_bot.py`) covering initial
+  grid seeding, fill detection and mirror-order placement, the investment
+  cap, client-order-id isolation from manually-placed orders, the kill
+  switch, stop semantics (cancels orders, preserves position), two-factor
+  arming, and the reload/restart lifecycle — same mocked-client pattern as
+  `tests/test_coordinator.py`, no real HA instance or Revolut X account
+  needed (64 total, all passing).
+
 ## 0.8.1
 
 - `dashboard_example.yaml`: the Balances and Price alerts sections now list

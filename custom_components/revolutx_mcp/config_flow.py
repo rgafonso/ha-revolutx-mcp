@@ -25,16 +25,21 @@ from .const import (
     CONF_ALERT_CHECK_INTERVAL,
     CONF_API_KEY,
     CONF_AUTH_MODE,
+    CONF_AUTO_RESUME,
     CONF_BAND,
+    CONF_CHECK_INTERVAL,
     CONF_DIRECT_SERVER_ENABLED,
     CONF_DIRECT_SERVER_PORT,
     CONF_DIRECT_SERVER_SECRET,
     CONF_DIRECTION,
     CONF_EXTERNAL_URL,
     CONF_FAST_PERIOD,
+    CONF_GRID_LEVELS,
     CONF_INDICATOR,
+    CONF_INVESTMENT,
     CONF_LOG_LEVEL,
     CONF_LOOKBACK,
+    CONF_MAX_CONSECUTIVE_ERRORS,
     CONF_MULTIPLIER,
     CONF_NOTIFY_TARGET,
     CONF_OAUTH_SIGNING_KEY,
@@ -42,9 +47,11 @@ from .const import (
     CONF_PERIOD,
     CONF_POLL_INTERVAL,
     CONF_PRIVATE_KEY,
+    CONF_RANGE_PCT,
     CONF_SIGNAL_PERIOD,
     CONF_SLOW_PERIOD,
     CONF_STD_MULT,
+    CONF_STOP_LOSS_PRICE,
     CONF_THRESHOLD,
     CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
@@ -52,20 +59,25 @@ from .const import (
     DEFAULT_ATR_MULTIPLIER,
     DEFAULT_ATR_PERIOD,
     DEFAULT_AUTH_MODE,
+    DEFAULT_AUTO_RESUME,
     DEFAULT_BOLLINGER_PERIOD,
     DEFAULT_BOLLINGER_STD_MULT,
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
     DEFAULT_EMA_FAST_PERIOD,
     DEFAULT_EMA_SLOW_PERIOD,
+    DEFAULT_GRID_BOT_CHECK_INTERVAL_SECONDS,
+    DEFAULT_GRID_LEVELS,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MACD_FAST_PERIOD,
     DEFAULT_MACD_SIGNAL_PERIOD,
     DEFAULT_MACD_SLOW_PERIOD,
+    DEFAULT_MAX_CONSECUTIVE_ERRORS,
     DEFAULT_OBI_THRESHOLD,
     DEFAULT_POLL_INTERVAL_MINUTES,
     DEFAULT_PRICE_CHANGE_LOOKBACK,
     DEFAULT_PRICE_CHANGE_THRESHOLD,
+    DEFAULT_RANGE_PCT,
     DEFAULT_RSI_PERIOD,
     DEFAULT_RSI_THRESHOLD,
     DEFAULT_SPREAD_THRESHOLD,
@@ -79,6 +91,8 @@ from .const import (
     DIRECTIONS_BULLISH_BEARISH,
     DIRECTIONS_RISE_FALL,
     DOMAIN,
+    GRID_BOT_CHECK_INTERVAL_MAX_SECONDS,
+    GRID_BOT_CHECK_INTERVAL_MIN_SECONDS,
     INDICATOR_ATR_BREAKOUT,
     INDICATOR_BOLLINGER,
     INDICATOR_EMA_CROSS,
@@ -93,6 +107,7 @@ from .const import (
     POLL_INTERVAL_MAX_MINUTES,
     POLL_INTERVAL_MIN_MINUTES,
     SUBENTRY_TYPE_ALERT_RULE,
+    SUBENTRY_TYPE_GRID_BOT,
 )
 from .revolut_client import RevolutXAPIError, RevolutXAuthError, RevolutXClient, load_private_key
 from .urls import direct_connect_url, webhook_connect_url
@@ -174,7 +189,10 @@ class RevolutXMCPConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        return {SUBENTRY_TYPE_ALERT_RULE: AlertRuleSubentryFlow}
+        return {
+            SUBENTRY_TYPE_ALERT_RULE: AlertRuleSubentryFlow,
+            SUBENTRY_TYPE_GRID_BOT: GridBotSubentryFlow,
+        }
 
 
 class RevolutXMCPOptionsFlow(OptionsFlow):
@@ -547,3 +565,87 @@ for _indicator in _INDICATOR_SCHEMAS:
         f"async_step_reconfigure_{_indicator}",
         _make_step(_indicator, True),
     )
+
+
+def _grid_bot_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(
+                CONF_GRID_LEVELS, default=d.get(CONF_GRID_LEVELS, DEFAULT_GRID_LEVELS)
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=25)),
+            vol.Required(
+                CONF_RANGE_PCT, default=d.get(CONF_RANGE_PCT, DEFAULT_RANGE_PCT)
+            ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=95)),
+            vol.Required(CONF_INVESTMENT, default=d.get(CONF_INVESTMENT, vol.UNDEFINED)): vol.All(
+                vol.Coerce(float), vol.Range(min=0, min_included=False)
+            ),
+            vol.Optional(
+                CONF_STOP_LOSS_PRICE, default=d.get(CONF_STOP_LOSS_PRICE, 0)
+            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Required(
+                CONF_CHECK_INTERVAL,
+                default=d.get(CONF_CHECK_INTERVAL, DEFAULT_GRID_BOT_CHECK_INTERVAL_SECONDS),
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=GRID_BOT_CHECK_INTERVAL_MIN_SECONDS, max=GRID_BOT_CHECK_INTERVAL_MAX_SECONDS),
+            ),
+            vol.Required(
+                CONF_MAX_CONSECUTIVE_ERRORS,
+                default=d.get(CONF_MAX_CONSECUTIVE_ERRORS, DEFAULT_MAX_CONSECUTIVE_ERRORS),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+            vol.Optional(
+                CONF_AUTO_RESUME, default=d.get(CONF_AUTO_RESUME, DEFAULT_AUTO_RESUME)
+            ): bool,
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+class GridBotSubentryFlow(ConfigSubentryFlow):
+    """Add/edit one live grid-trading bot — see grid_bot.py for execution and
+    the safety design (two-factor arming, order-namespace isolation,
+    investment cap, consecutive-error kill switch, restart-resume policy).
+
+    Single schema (not a per-indicator menu like AlertRuleSubentryFlow) since
+    there's only one kind of grid bot. Same plain async_update_and_abort
+    pattern as AlertRuleSubentryFlow and for the same reason — see its
+    docstring.
+
+    Reconfigure is blocked while the bot is running: changing grid
+    parameters out from under live resting orders is unsafe, so the runtime
+    engine's is_running (hass.data[DOMAIN][entry_id].grid_bot_engines) is
+    checked before showing the form, and the user must stop the bot first.
+    """
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        if user_input is not None:
+            data = dict(user_input)
+            data[CONF_PAIR] = str(data[CONF_PAIR]).strip().upper()
+            return self.async_create_entry(title=f"{data[CONF_PAIR]} grid bot", data=data)
+        return self.async_show_form(step_id="user", data_schema=_grid_bot_schema())
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
+        subentry = self._get_reconfigure_subentry()
+        if self._engine_running(subentry.subentry_id):
+            return self.async_abort(reason="bot_running")
+
+        if user_input is not None:
+            data = dict(user_input)
+            data[CONF_PAIR] = str(data[CONF_PAIR]).strip().upper()
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, title=f"{data[CONF_PAIR]} grid bot", data=data
+            )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=_grid_bot_schema(subentry.data)
+        )
+
+    def _engine_running(self, subentry_id: str) -> bool:
+        runtime = self.hass.data.get(DOMAIN, {}).get(self._get_entry().entry_id)
+        if runtime is None:
+            return False
+        engine = runtime.grid_bot_engines.get(subentry_id)
+        return bool(engine and engine.is_running)

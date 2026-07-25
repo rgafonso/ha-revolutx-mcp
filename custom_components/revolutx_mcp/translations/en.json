@@ -262,6 +262,60 @@
           }
         }
       }
+    },
+    "grid_bot": {
+      "entry_type": "Grid bot",
+      "initiate_flow": {
+        "user": "Add grid bot",
+        "reconfigure": "Reconfigure grid bot"
+      },
+      "step": {
+        "user": {
+          "title": "Grid bot",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "grid_levels": "Grid levels per side",
+            "range_pct": "Grid range (%)",
+            "investment": "Investment cap (quote currency)",
+            "stop_loss_price": "Stop-loss price (0 = disabled)",
+            "check_interval": "Reconciliation interval (seconds)",
+            "max_consecutive_errors": "Stop after N consecutive errors",
+            "auto_resume": "Resume automatically after a Home Assistant restart",
+            "notify_target": "Notify target (optional)"
+          },
+          "data_description": {
+            "investment": "Hard cap on quote currency this bot will ever commit to new buy orders — it refuses to place a buy that would exceed this, even if funds are available.",
+            "stop_loss_price": "If the price reaches this, the bot cancels its resting orders and stops (does not sell any position already held — 0 disables this).",
+            "check_interval": "How often the bot checks its own resting orders for fills and reconciles state.",
+            "max_consecutive_errors": "If this many reconciliation checks in a row fail, the bot stops itself, cancels its resting orders, and notifies you — a safety kill switch, not a normal control. A human must re-arm it.",
+            "auto_resume": "By default, if Home Assistant restarts while this bot is running, it stays stopped until you turn it back on — resting orders on Revolut X are unaffected either way, this only controls whether this integration keeps placing new orders on your behalf without you noticing the restart happened. Enable only if you understand that trade-off."
+          }
+        },
+        "reconfigure": {
+          "title": "Grid bot",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "grid_levels": "Grid levels per side",
+            "range_pct": "Grid range (%)",
+            "investment": "Investment cap (quote currency)",
+            "stop_loss_price": "Stop-loss price (0 = disabled)",
+            "check_interval": "Reconciliation interval (seconds)",
+            "max_consecutive_errors": "Stop after N consecutive errors",
+            "auto_resume": "Resume automatically after a Home Assistant restart",
+            "notify_target": "Notify target (optional)"
+          },
+          "data_description": {
+            "investment": "Hard cap on quote currency this bot will ever commit to new buy orders — it refuses to place a buy that would exceed this, even if funds are available.",
+            "stop_loss_price": "If the price reaches this, the bot cancels its resting orders and stops (does not sell any position already held — 0 disables this).",
+            "check_interval": "How often the bot checks its own resting orders for fills and reconciles state.",
+            "max_consecutive_errors": "If this many reconciliation checks in a row fail, the bot stops itself, cancels its resting orders, and notifies you — a safety kill switch, not a normal control. A human must re-arm it.",
+            "auto_resume": "By default, if Home Assistant restarts while this bot is running, it stays stopped until you turn it back on — resting orders on Revolut X are unaffected either way, this only controls whether this integration keeps placing new orders on your behalf without you noticing the restart happened. Enable only if you understand that trade-off."
+          }
+        }
+      },
+      "abort": {
+        "bot_running": "Stop this grid bot before changing its configuration — its live resting orders don't match new grid parameters until you do."
+      }
     }
   },
   "entity": {

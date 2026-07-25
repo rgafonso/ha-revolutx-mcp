@@ -144,6 +144,9 @@ All entities group under one HA device ("Revolut X") per config entry.
 - **Alert rules**: one triggered/not-triggered binary sensor per price-alert
   rule you've added (see [Price alerts](#price-alerts)), named after the
   rule itself.
+- **Grid bots**: one start/stop switch, one P&L sensor, and one status
+  sensor per live grid bot you've added (see [Grid bots](#grid-bots)), named
+  after the bot itself.
 
 ## Price alerts
 
@@ -192,6 +195,62 @@ data poll interval** (default 5 minutes) — kept conservative since Revolut X's
 documented rate limits aren't generous (1000 requests/day for limit orders
 specifically).
 
+## Grid bots
+
+⚠️ From the integration's entry page, an **"Add grid bot"** button lets you
+define a live grid-trading bot for one pair — it places **REAL limit orders
+using REAL funds** on Revolut X once armed. Each bot picks: pair, grid
+levels per side (1-25), grid range (%), an **investment cap** (the hard
+ceiling on quote currency it will ever commit to new buy orders), an
+optional stop-loss price (0 disables it), a reconciliation interval
+(default 30s), how many consecutive errors before it stops itself (default
+5), whether to resume automatically after a Home Assistant restart (default
+off — see below), and an optional `notify.*` target for stop-loss/kill-switch
+alerts.
+
+**Two-factor arming**: a bot only ever places an order if both this entry's
+**Enable order placement (trading)** option (Options, off by default — same
+toggle the 4 MCP trading tools use) and the bot's own switch are on. Turning
+either off stops it.
+
+**Execution model**: rests real limit buy orders below the current price at
+each grid level; when Revolut X fills one, the bot places the mirror sell
+one level up (and vice versa for sells), reconciling on the interval above.
+This delegates price-crossing detection to Revolut X's own matching engine
+rather than simulating it. `grid_backtest`/`grid_optimize` (below) share the
+same grid-spacing math, so a backtest is a reasonable way to sanity-check
+parameters before arming a bot with real funds.
+
+**Stop ≠ flatten**: turning a bot's switch off cancels its own resting
+orders (never any order it didn't place — see below) but leaves any
+already-filled base-asset position exactly as-is. If you want to also close
+that position, do it yourself via `place_order`/the Revolut X app.
+
+**Safety design**, since an always-on bot placing orders on its own schedule
+is a different risk category from the on-demand order-write tools:
+- Every order gets a `client_order_id` namespaced to that specific bot; the
+  bot only ever reads/cancels orders carrying its own namespace, and never
+  calls `cancel_all_orders` (which has no symbol filter and would touch
+  orders you placed manually too).
+- After enough consecutive reconciliation failures (the "stop after N
+  consecutive errors" setting), the bot stops itself, cancels nothing
+  further (to avoid hammering a possibly-failing API), and notifies — a
+  human has to investigate and re-arm it; there's no auto-recovery.
+- If Home Assistant restarts while a bot is armed, it always refreshes its
+  P&L/position from Revolut X immediately, but by default **stays stopped**
+  until you turn it back on — resting orders are safe unattended on the
+  exchange either way, so this default just avoids silently resuming
+  autonomous order placement right after an uncontrolled restart you may
+  not have noticed. Enable **Resume automatically after a Home Assistant
+  restart** on a specific bot only if you've thought through that trade-off.
+- Reconfiguring a bot's grid parameters is blocked while it's running — its
+  live resting orders wouldn't match the new parameters otherwise. Stop it
+  first.
+
+v1 scope: no `split_investment`/`trailing_up` (the grid stays fixed once
+armed — cancel and re-add the bot to change its range); partial fills are
+treated as not-yet-filled.
+
 ## Dashboard
 
 [`dashboard_example.yaml`](dashboard_example.yaml) is a bundled example
@@ -207,8 +266,10 @@ the dashboard via Settings → Dashboards → Add dashboard → New dashboard fr
 scratch, then its three-dot menu → Edit in YAML.
 
 Grid-bot state (grid levels vs. current price, open positions, realized P&L)
-isn't in this example yet — it depends on live grid-bot execution, which
-isn't implemented (see `ROADMAP.md` at the repo root).
+isn't in this example yet — the new switch/P&L/status entities from
+[Grid bots](#grid-bots) above can be added with standard tile cards the same
+way the other sections are, but a proper grid-levels-vs-price visualization
+is still an open question (see `ROADMAP.md` at the repo root).
 
 ## Grid backtest tools
 

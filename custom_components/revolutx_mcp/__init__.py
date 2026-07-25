@@ -17,6 +17,7 @@ from .const import (
     AUTH_MODE_LEGACY_OAUTH,
     CONF_API_KEY,
     CONF_AUTH_MODE,
+    CONF_AUTO_RESUME,
     CONF_DIRECT_SERVER_ENABLED,
     CONF_DIRECT_SERVER_PORT,
     CONF_DIRECT_SERVER_SECRET,
@@ -26,14 +27,17 @@ from .const import (
     CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
     DEFAULT_AUTH_MODE,
+    DEFAULT_AUTO_RESUME,
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
     DEFAULT_TRADING_ENABLED,
     DOMAIN,
+    SUBENTRY_TYPE_GRID_BOT,
 )
 from .alert_coordinator import RevolutXAlertCoordinator
 from .coordinator import RevolutXDataUpdateCoordinator
 from .direct_server import DirectServer
+from .grid_bot import GridBotEngine
 from .oauth_legacy import async_register_views, issuer_url, webhook_resource_metadata_url
 from .revolut_client import RevolutXClient, load_private_key
 from .transport import RequestStats, request_served_signal
@@ -42,7 +46,16 @@ from .webhook import async_register_webhook, async_unregister_webhook
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH]
+
+# Set the first time any entry's async_setup_entry runs in this Python
+# process. A config-entry *reload* (options change, subentry CRUD) tears
+# down and rebuilds hass.data[DOMAIN][entry_id] but leaves this domain-level
+# key untouched, so its presence reliably distinguishes "same process, just
+# a reload" (safe to resume a grid bot's order placement unconditionally)
+# from "fresh process after a restart" (conservative by default — see
+# grid_bot.py's restart-behavior safety rule and async_setup_entry below).
+_PROCESS_STARTED_KEY = f"{DOMAIN}_process_started"
 
 # Legacy-OAuth HTTP views (/authorize, /token, /.well-known/*) are registered once,
 # globally, on Home Assistant's own HTTP app — not once per config entry. This
@@ -62,12 +75,14 @@ class RuntimeData:
         coordinator: RevolutXDataUpdateCoordinator,
         stats: RequestStats,
         alert_coordinator: RevolutXAlertCoordinator,
+        grid_bot_engines: dict[str, GridBotEngine],
     ) -> None:
         self.client = client
         self.direct_server = direct_server
         self.coordinator = coordinator
         self.stats = stats
         self.alert_coordinator = alert_coordinator
+        self.grid_bot_engines = grid_bot_engines
 
 
 def _base_url(hass: HomeAssistant, entry: ConfigEntry) -> str:
@@ -146,11 +161,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     alert_coordinator = RevolutXAlertCoordinator(hass, entry, client)
     await alert_coordinator.async_config_entry_first_refresh()
 
+    grid_bot_engines: dict[str, GridBotEngine] = {}
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_GRID_BOT:
+            continue
+        engine = GridBotEngine(hass, entry, subentry, client)
+        await engine.async_load()
+        grid_bot_engines[subentry.subentry_id] = engine
+
+    # See _PROCESS_STARTED_KEY's own comment: this distinguishes "same
+    # process, just a reload" from "fresh process after a restart" for the
+    # grid-bot resume decision below.
+    is_same_process_reload = hass.data.get(_PROCESS_STARTED_KEY, False)
+    hass.data[_PROCESS_STARTED_KEY] = True
+
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = RuntimeData(
-        client, direct_server, coordinator, stats, alert_coordinator
+        client, direct_server, coordinator, stats, alert_coordinator, grid_bot_engines
     )
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    for subentry_id, engine in grid_bot_engines.items():
+        if not engine.state.running or engine.state.killed:
+            continue
+        # Reconcile fills/state immediately regardless (resting orders live
+        # on Revolut X's own matching engine, not in this process, so this
+        # is safe and keeps sensors accurate) — but only resume placing new
+        # orders if this is a same-process reload (nothing dangerous
+        # happened) or the bot explicitly opted into auto_resume. See
+        # grid_bot.py's module docstring for the full reasoning.
+        await engine.async_reconcile_only()
+        auto_resume = bool(entry.subentries[subentry_id].data.get(CONF_AUTO_RESUME, DEFAULT_AUTO_RESUME))
+        if is_same_process_reload or (trading_enabled and auto_resume):
+            await engine.async_start()
+        else:
+            await engine.async_defer_resume()
 
     _notify_connect_urls(hass, entry)
     return True
@@ -185,6 +230,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not unload_ok:
         return False
     runtime: RuntimeData = hass.data[DOMAIN].pop(entry.entry_id)
+
+    # Only cancel live grid-bot orders if trading has genuinely just been
+    # turned off for this entry. entry.options already reflects any
+    # just-applied change here — HA's async_update_entry sets it
+    # synchronously before scheduling the update listener that leads to
+    # this reload — so an options-only reload for something unrelated (e.g.
+    # direct_server_port) leaves resting orders completely undisturbed;
+    # async_setup_entry picks the same engine object's persisted state back
+    # up next.
+    trading_now_enabled = entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
+    for engine in runtime.grid_bot_engines.values():
+        if trading_now_enabled:
+            engine.async_pause_for_reload()
+        else:
+            await engine.async_stop(cancel_orders=True)
+
     async_unregister_webhook(hass, entry.data[CONF_WEBHOOK_ID])
     await runtime.direct_server.async_stop()
     return True

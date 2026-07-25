@@ -45,6 +45,32 @@ ALERT_CHECK_INTERVAL_MAX_SECONDS = 3600
 
 SUBENTRY_TYPE_ALERT_RULE = "alert_rule"
 
+# Live grid-bot execution (subentries) — places real orders. See grid_bot.py
+# for the safety design (two-factor arming, order-namespace isolation,
+# investment cap, consecutive-error kill switch, restart-resume policy).
+SUBENTRY_TYPE_GRID_BOT = "grid_bot"
+
+CONF_GRID_LEVELS = "grid_levels"  # per side, 1-25 — same bound as grid_backtest
+CONF_RANGE_PCT = "range_pct"  # percent, e.g. 10 (engine divides by 100)
+CONF_INVESTMENT = "investment"
+CONF_STOP_LOSS_PRICE = "stop_loss_price"  # 0 = disabled, matches backtest convention
+CONF_CHECK_INTERVAL = "check_interval"
+CONF_MAX_CONSECUTIVE_ERRORS = "max_consecutive_errors"
+CONF_AUTO_RESUME = "auto_resume"  # default False — see grid_bot.py restart policy
+
+DEFAULT_GRID_BOT_CHECK_INTERVAL_SECONDS = 30
+GRID_BOT_CHECK_INTERVAL_MIN_SECONDS = 10
+GRID_BOT_CHECK_INTERVAL_MAX_SECONDS = 600
+DEFAULT_MAX_CONSECUTIVE_ERRORS = 5
+DEFAULT_AUTO_RESUME = False
+
+# Namespaces every order a grid bot places, so it can identify (and only
+# ever cancel) its own orders — never account-wide cancel_all_orders().
+CLIENT_ORDER_ID_PREFIX = "revx-gb-"
+
+DEFAULT_GRID_LEVELS = 5  # per side — matches grid_backtest's own default
+DEFAULT_RANGE_PCT = 10  # percent — matches grid_backtest's own default
+
 INDICATOR_PRICE = "price"
 INDICATOR_PRICE_CHANGE = "price_change"
 INDICATOR_RSI = "rsi"

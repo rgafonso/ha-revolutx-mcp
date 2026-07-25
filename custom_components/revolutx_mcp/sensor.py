@@ -12,9 +12,10 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_PAIR, DOMAIN, SUBENTRY_TYPE_GRID_BOT
 from .coordinator import RevolutXDataUpdateCoordinator
 from .device import device_info
+from .grid_bot import GridBotEngine
 from .transport import RequestStats
 
 
@@ -46,6 +47,18 @@ async def async_setup_entry(
             RevolutXLastServedSensor(entry, runtime.stats),
         ]
     )
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_GRID_BOT:
+            continue
+        engine = runtime.grid_bot_engines[subentry.subentry_id]
+        async_add_entities(
+            [
+                RevolutXGridBotPnlSensor(engine, entry, subentry),
+                RevolutXGridBotStatusSensor(engine, entry, subentry),
+            ],
+            config_subentry_id=subentry.subentry_id,
+        )
 
 
 class RevolutXBalanceSensor(CoordinatorEntity[RevolutXDataUpdateCoordinator], SensorEntity):
@@ -172,3 +185,81 @@ class RevolutXLastServedSensor(_RequestStatsSensor):
     @property
     def native_value(self):
         return self._stats.last_served
+
+
+class _GridBotEntity:
+    """Shared push-update wiring for grid-bot sensors — the engine notifies
+    listeners itself after each tick (see grid_bot.py), there's no
+    coordinator here since ticks are engine-owned, not shared."""
+
+    def __init__(self, engine: GridBotEngine) -> None:
+        self._engine = engine
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._engine.add_listener(self._handle_update))
+
+    @callback
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
+
+
+class RevolutXGridBotPnlSensor(_GridBotEntity, SensorEntity):
+    """Realized P&L for one live grid bot — see grid_bot.py for how
+    position_base/committed_quote/realized_pnl are computed and the safety
+    caps (investment ceiling, kill switch) that bound them."""
+
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_should_poll = False
+
+    def __init__(self, engine: GridBotEngine, entry: ConfigEntry, subentry) -> None:
+        super().__init__(engine)
+        self._attr_name = f"{subentry.title} P&L"
+        self._attr_unique_id = f"{entry.entry_id}_grid_bot_{subentry.subentry_id}_pnl"
+        self._attr_device_info = device_info(entry)
+        pair = str(subentry.data.get(CONF_PAIR, ""))
+        self._attr_native_unit_of_measurement = pair.split("-")[-1] if "-" in pair else None
+
+    @property
+    def native_value(self) -> Decimal:
+        return Decimal(self._engine.state.realized_pnl)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "position_base": self._engine.state.position_base,
+            "committed_quote": self._engine.state.committed_quote,
+        }
+
+
+class RevolutXGridBotStatusSensor(_GridBotEntity, SensorEntity):
+    """Status + grid/trade-log detail for one live grid bot. State changes
+    land in HA's Logbook/History automatically — this is "the log," no
+    separate log entity needed, the same mechanism
+    RevolutXAlertRuleTriggeredSensor (binary_sensor.py) already relies on.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, engine: GridBotEngine, entry: ConfigEntry, subentry) -> None:
+        super().__init__(engine)
+        self._attr_name = f"{subentry.title} status"
+        self._attr_unique_id = f"{entry.entry_id}_grid_bot_{subentry.subentry_id}_status"
+        self._attr_device_info = device_info(entry)
+
+    @property
+    def native_value(self) -> str:
+        if self._engine.state.killed:
+            return "killed"
+        return "running" if self._engine.is_running else "stopped"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "grid_levels": self._engine.state.grid_levels,
+            "trade_log": self._engine.state.trade_log[-20:],
+            "last_tick": self._engine.state.last_tick,
+            "consecutive_errors": self._engine.state.consecutive_errors,
+            "last_error": self._engine.state.last_error,
+        }
