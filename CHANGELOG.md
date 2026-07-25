@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.3
+
+- Active orders now get their own entity, one per currently-open order (e.g.
+  `sensor.revolut_x_btc_eur_buy_order`), added dynamically the same way
+  balance sensors are — state is the order's own status
+  (`new`/`partially_filled`/...), with price, size, filled amount, and the
+  rest of the order fields as attributes. Unlike balances, an order's sensor
+  is removed outright (not left `unavailable`) once it's no longer open,
+  since orders churn constantly as they fill/cancel/get replaced, unlike the
+  small, stable set of currencies. The existing active-orders count sensor
+  is unchanged.
+
 ## 0.9.2
 
 - Every Revolut X REST API call made by `revolut_client.py` is now logged at

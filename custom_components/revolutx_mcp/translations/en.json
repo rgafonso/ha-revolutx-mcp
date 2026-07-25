@@ -326,6 +326,9 @@
       "active_orders_count": {
         "name": "Active orders"
       },
+      "order": {
+        "name": "{symbol} {side} order"
+      },
       "requests_served": {
         "name": "MCP requests served"
       },

@@ -136,7 +136,14 @@ thing" on their own.
   added dynamically as new currencies are first seen. State is the spendable
   ("available") amount; `reserved`/`total`/`staked` are attributes. A currency
   that disappears from a later poll goes `unavailable` rather than being removed.
-- **Active orders**: a count sensor, with the raw order list as an attribute.
+- **Active orders**: a count sensor (raw order list as its attribute), plus
+  one sensor per currently-open order (e.g. `sensor.revolut_x_btc_eur_buy_order`),
+  added dynamically as orders are placed. State is the order's own status
+  (`new`/`partially_filled`/...); price, size, filled amount, and the rest of
+  the order fields are attributes. Unlike balances, an order's sensor is
+  removed outright (not left `unavailable`) once it's no longer open —
+  orders churn constantly as they fill/cancel, so keeping every past order
+  around forever would grow the entity registry unbounded.
 - **Service health**: an MCP request-count sensor and a last-request-served
   timestamp sensor (both push-updated on every successfully authenticated,
   well-formed MCP call) — these are the useful "did my server silently stop

@@ -49,6 +49,26 @@ async def async_setup_entry(
     _add_new_currencies()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_currencies))
 
+    known_orders: dict[str, RevolutXOrderSensor] = {}
+
+    @callback
+    def _sync_orders() -> None:
+        current = {o["id"]: o for o in coordinator.data.active_orders if o.get("id")}
+        new_entities = [
+            known_orders.setdefault(oid, RevolutXOrderSensor(coordinator, entry, order))
+            for oid, order in current.items()
+            if oid not in known_orders
+        ]
+        if new_entities:
+            async_add_entities(new_entities)
+        for oid in known_orders.keys() - current.keys():
+            entry.async_create_task(
+                hass, known_orders.pop(oid).async_remove(force_remove=True), "remove order sensor"
+            )
+
+    _sync_orders()
+    entry.async_on_unload(coordinator.async_add_listener(_sync_orders))
+
     async_add_entities(
         [
             RevolutXActiveOrdersCountSensor(coordinator, entry),
@@ -146,6 +166,57 @@ class RevolutXActiveOrdersCountSensor(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"orders": self.coordinator.data.active_orders, ATTR_CATEGORY: CATEGORY_ORDER}
+
+
+class RevolutXOrderSensor(CoordinatorEntity[RevolutXDataUpdateCoordinator], SensorEntity):
+    """One entity per currently-open order, state is the order's own `status`
+    (`new`/`partially_filled`/... ), everything else in the order dict is an
+    attribute.
+
+    Unlike balances, orders are inherently transient — the open-order set
+    churns constantly as orders fill/cancel/get replaced — so, unlike
+    `RevolutXBalanceSensor`, an order's entity is removed outright (not left
+    `unavailable`) once its id no longer appears in a poll; see
+    `_sync_orders()` in `async_setup_entry` above.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "order"
+
+    def __init__(
+        self, coordinator: RevolutXDataUpdateCoordinator, entry: ConfigEntry, order: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator)
+        self._order_id = order["id"]
+        self._attr_unique_id = f"{entry.entry_id}_order_{self._order_id}"
+        self._attr_translation_placeholders = {
+            "symbol": str(order.get("symbol", "")),
+            "side": str(order.get("side", "")),
+        }
+        self._attr_device_info = device_info(entry)
+
+    def _order(self) -> dict[str, Any] | None:
+        return next(
+            (o for o in self.coordinator.data.active_orders if o.get("id") == self._order_id),
+            None,
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._order() is not None
+
+    @property
+    def native_value(self) -> str | None:
+        order = self._order()
+        return order.get("status") if order else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        order = self._order() or {}
+        return {
+            **{k: v for k, v in order.items() if k not in ("id", "status")},
+            ATTR_CATEGORY: CATEGORY_ORDER,
+        }
 
 
 class _RequestStatsSensor(SensorEntity):
