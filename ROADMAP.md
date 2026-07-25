@@ -29,15 +29,19 @@ with the simulation tools that already exist.
 
 ## Dashboard for visualization
 
-Native HA entities (balances, active orders, service health) and price-alert
-rules now exist, so a dashboard covering both is buildable today — but still
-depends on live grid-bot execution (above) for the rest of the intended
-scope. Once that exists too, a bundled example dashboard (or a documented Lovelace YAML
-snippet in the README) tying them together would be worth adding: account
-balances/orders, which monitors are currently armed and how close they are to
-triggering, and grid-bot state (current price's position within the grid,
-open positions, realized P&L) — the kind of view the CLI's `strategy grid run`
-already renders as a live terminal dashboard.
+The account/alerts half is done: `custom_components/revolutx_mcp/dashboard_example.yaml`
+is a bundled example Lovelace dashboard (documented in that directory's
+README under "Dashboard"), built entirely from standard cards (tile, heading,
+grid) covering balances, active orders, price-alert rule status, and service
+health — confirming the "prefer standard Lovelace cards over a custom
+frontend component" direction below was sufficient for this half; no custom
+card was needed.
+
+What's still missing is grid-bot state (current price's position within the
+grid, open positions, realized P&L) — the kind of view the CLI's
+`strategy grid run` already renders as a live terminal dashboard — which
+depends on live grid-bot execution (above) not implemented yet. Once that
+exists, extend the example dashboard with it rather than starting a new one.
 
 Direction: prefer standard Lovelace cards (entities card, history-graph,
 statistics card) over a custom frontend component wherever they're
@@ -47,8 +51,9 @@ dashboard config rather than code we maintain. A custom card would only be
 worth building if a standard card genuinely can't represent something — a
 grid-levels-vs-current-price visualization for the live bot is the most
 likely candidate, mirroring the CLI's own bespoke terminal view for that same
-data. No direction chosen on the custom-card question yet; it depends on how
-the entities from the sections above end up shaped.
+data. No direction chosen on the custom-card question yet for that
+grid-bot-specific piece; it depends on how the live-execution entities end up
+shaped.
 
 ## Why not port the CLI's model
 

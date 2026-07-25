@@ -192,6 +192,22 @@ data poll interval** (default 5 minutes) — kept conservative since Revolut X's
 documented rate limits aren't generous (1000 requests/day for limit orders
 specifically).
 
+## Dashboard
+
+[`dashboard_example.yaml`](dashboard_example.yaml) is a bundled example
+Lovelace dashboard built entirely from standard cards (tile, heading, grid —
+no custom frontend component) covering balances, active orders, price-alert
+rule status, and service health. Two groups of entities in it (per-currency
+balance tiles, per-alert-rule tiles) are account-specific and need adjusting
+to your own entity IDs before use — the file's own header comments walk
+through that, and the [Entities](#entities) section above explains what each
+entity means. Import it via Settings → Dashboards → Add dashboard → New
+dashboard from scratch, then its three-dot menu → Edit in YAML.
+
+Grid-bot state (grid levels vs. current price, open positions, realized P&L)
+isn't in this example yet — it depends on live grid-bot execution, which
+isn't implemented (see `ROADMAP.md` at the repo root).
+
 ## Grid backtest tools
 
 `grid_backtest` and `grid_optimize` simulate a grid trading strategy against

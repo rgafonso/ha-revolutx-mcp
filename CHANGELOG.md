@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+- Added `custom_components/revolutx_mcp/dashboard_example.yaml`, a bundled
+  example Lovelace dashboard covering balances, active orders, price-alert
+  rule status, and service health — built entirely from standard cards
+  (tile, heading, grid), no custom frontend component. Documented under a
+  new "Dashboard" section in the integration's own README, alongside
+  existing "Entities"/"Price alerts" sections. Per-currency balance tiles and
+  per-alert-rule tiles are account-specific and ship as examples the file's
+  own header comments walk through swapping for real entity IDs. Grid-bot
+  state (grid levels vs. current price, open positions, P&L) is intentionally
+  out of scope for this pass — see `ROADMAP.md`, it depends on live grid-bot
+  execution, not implemented yet.
+
 ## 0.7.0
 
 - Added the remaining 7 price-alert indicator types, reaching full parity
