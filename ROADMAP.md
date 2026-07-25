@@ -10,20 +10,6 @@ backtesting as long-standing goals too, but the direction below is specific to
 building these *inside* Home Assistant, not porting the add-on's Node/CLI
 approach — see "Why not port the CLI's model" below.
 
-## Remaining price-alert indicator types
-
-Price-alert monitoring (add/view/remove alert rules from Settings, via HA's
-Config Subentries) shipped in 0.6.0 — see `CHANGELOG.md` for the full design.
-Only 3 of the upstream `revx` CLI's 10 `monitor` indicator types were ported:
-price threshold, price-change %, and RSI. The rest — EMA-cross, MACD,
-Bollinger, volume-spike, spread, order-book imbalance, ATR-breakout — aren't
-implemented yet. Adding one is mostly plumbing at this point: an evaluator
-function in `alert_indicators.py` (matching the existing
-`evaluate_price`/`evaluate_rsi` shape), a new `INDICATOR_*` constant, a
-subentry-flow step + schema in `config_flow.py`, and a branch in
-`RevolutXAlertCoordinator._evaluate_rule`. No architectural work left, just
-one indicator at a time as they're wanted.
-
 ## Live grid-bot execution
 
 The CLI's `revx strategy grid run` places real orders continuously,

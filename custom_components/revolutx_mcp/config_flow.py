@@ -20,45 +20,75 @@ from .const import (
     ALERT_CHECK_INTERVAL_MAX_SECONDS,
     ALERT_CHECK_INTERVAL_MIN_SECONDS,
     AUTH_MODES,
+    BAND_UPPER,
+    BANDS,
     CONF_ALERT_CHECK_INTERVAL,
     CONF_API_KEY,
     CONF_AUTH_MODE,
+    CONF_BAND,
     CONF_DIRECT_SERVER_ENABLED,
     CONF_DIRECT_SERVER_PORT,
     CONF_DIRECT_SERVER_SECRET,
     CONF_DIRECTION,
     CONF_EXTERNAL_URL,
+    CONF_FAST_PERIOD,
     CONF_INDICATOR,
     CONF_LOG_LEVEL,
     CONF_LOOKBACK,
+    CONF_MULTIPLIER,
     CONF_NOTIFY_TARGET,
     CONF_OAUTH_SIGNING_KEY,
     CONF_PAIR,
     CONF_PERIOD,
     CONF_POLL_INTERVAL,
     CONF_PRIVATE_KEY,
+    CONF_SIGNAL_PERIOD,
+    CONF_SLOW_PERIOD,
+    CONF_STD_MULT,
     CONF_THRESHOLD,
     CONF_TRADING_ENABLED,
     CONF_WEBHOOK_ID,
     DEFAULT_ALERT_CHECK_INTERVAL_SECONDS,
+    DEFAULT_ATR_MULTIPLIER,
+    DEFAULT_ATR_PERIOD,
     DEFAULT_AUTH_MODE,
+    DEFAULT_BOLLINGER_PERIOD,
+    DEFAULT_BOLLINGER_STD_MULT,
     DEFAULT_DIRECT_SERVER_ENABLED,
     DEFAULT_DIRECT_SERVER_PORT,
+    DEFAULT_EMA_FAST_PERIOD,
+    DEFAULT_EMA_SLOW_PERIOD,
     DEFAULT_LOG_LEVEL,
+    DEFAULT_MACD_FAST_PERIOD,
+    DEFAULT_MACD_SIGNAL_PERIOD,
+    DEFAULT_MACD_SLOW_PERIOD,
+    DEFAULT_OBI_THRESHOLD,
     DEFAULT_POLL_INTERVAL_MINUTES,
     DEFAULT_PRICE_CHANGE_LOOKBACK,
     DEFAULT_PRICE_CHANGE_THRESHOLD,
     DEFAULT_RSI_PERIOD,
     DEFAULT_RSI_THRESHOLD,
+    DEFAULT_SPREAD_THRESHOLD,
     DEFAULT_TRADING_ENABLED,
+    DEFAULT_VOLUME_SPIKE_MULTIPLIER,
+    DEFAULT_VOLUME_SPIKE_PERIOD,
     DIRECTION_ABOVE,
+    DIRECTION_BULLISH,
     DIRECTION_RISE,
     DIRECTIONS_ABOVE_BELOW,
+    DIRECTIONS_BULLISH_BEARISH,
     DIRECTIONS_RISE_FALL,
     DOMAIN,
+    INDICATOR_ATR_BREAKOUT,
+    INDICATOR_BOLLINGER,
+    INDICATOR_EMA_CROSS,
+    INDICATOR_MACD,
+    INDICATOR_OBI,
     INDICATOR_PRICE,
     INDICATOR_PRICE_CHANGE,
     INDICATOR_RSI,
+    INDICATOR_SPREAD,
+    INDICATOR_VOLUME_SPIKE,
     LOG_LEVELS,
     POLL_INTERVAL_MAX_MINUTES,
     POLL_INTERVAL_MIN_MINUTES,
@@ -279,6 +309,142 @@ def _rsi_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
+def _ema_cross_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(
+                CONF_DIRECTION, default=d.get(CONF_DIRECTION, DIRECTION_BULLISH)
+            ): vol.In(DIRECTIONS_BULLISH_BEARISH),
+            vol.Required(
+                CONF_FAST_PERIOD, default=d.get(CONF_FAST_PERIOD, DEFAULT_EMA_FAST_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_SLOW_PERIOD, default=d.get(CONF_SLOW_PERIOD, DEFAULT_EMA_SLOW_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _macd_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(
+                CONF_DIRECTION, default=d.get(CONF_DIRECTION, DIRECTION_BULLISH)
+            ): vol.In(DIRECTIONS_BULLISH_BEARISH),
+            vol.Required(
+                CONF_FAST_PERIOD, default=d.get(CONF_FAST_PERIOD, DEFAULT_MACD_FAST_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_SLOW_PERIOD, default=d.get(CONF_SLOW_PERIOD, DEFAULT_MACD_SLOW_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_SIGNAL_PERIOD, default=d.get(CONF_SIGNAL_PERIOD, DEFAULT_MACD_SIGNAL_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _bollinger_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(CONF_BAND, default=d.get(CONF_BAND, BAND_UPPER)): vol.In(BANDS),
+            vol.Required(
+                CONF_PERIOD, default=d.get(CONF_PERIOD, DEFAULT_BOLLINGER_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_STD_MULT, default=d.get(CONF_STD_MULT, DEFAULT_BOLLINGER_STD_MULT)
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _volume_spike_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(
+                CONF_PERIOD, default=d.get(CONF_PERIOD, DEFAULT_VOLUME_SPIKE_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_MULTIPLIER, default=d.get(CONF_MULTIPLIER, DEFAULT_VOLUME_SPIKE_MULTIPLIER)
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _spread_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(CONF_DIRECTION, default=d.get(CONF_DIRECTION, DIRECTION_ABOVE)): vol.In(
+                DIRECTIONS_ABOVE_BELOW
+            ),
+            vol.Required(
+                CONF_THRESHOLD, default=d.get(CONF_THRESHOLD, DEFAULT_SPREAD_THRESHOLD)
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _obi_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(CONF_DIRECTION, default=d.get(CONF_DIRECTION, DIRECTION_ABOVE)): vol.In(
+                DIRECTIONS_ABOVE_BELOW
+            ),
+            vol.Required(
+                CONF_THRESHOLD, default=d.get(CONF_THRESHOLD, DEFAULT_OBI_THRESHOLD)
+            ): vol.All(vol.Coerce(float), vol.Range(min=-1, max=1)),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
+def _atr_breakout_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    d = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(CONF_PAIR, default=d.get(CONF_PAIR, "")): str,
+            vol.Required(
+                CONF_PERIOD, default=d.get(CONF_PERIOD, DEFAULT_ATR_PERIOD)
+            ): vol.All(vol.Coerce(int), vol.Range(min=2, max=500)),
+            vol.Required(
+                CONF_MULTIPLIER, default=d.get(CONF_MULTIPLIER, DEFAULT_ATR_MULTIPLIER)
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_NOTIFY_TARGET, default=d.get(CONF_NOTIFY_TARGET, vol.UNDEFINED)
+            ): _notify_selector(),
+        }
+    )
+
+
 def _rule_title(indicator: str, data: dict[str, Any]) -> str:
     pair = str(data.get(CONF_PAIR, "")).upper()
     direction = data.get(CONF_DIRECTION, "")
@@ -288,7 +454,37 @@ def _rule_title(indicator: str, data: dict[str, Any]) -> str:
         return f"{pair} price {direction} {data[CONF_THRESHOLD]}% ({data[CONF_LOOKBACK]}c)"
     if indicator == INDICATOR_RSI:
         return f"{pair} RSI({data[CONF_PERIOD]}) {direction} {data[CONF_THRESHOLD]}"
+    if indicator == INDICATOR_EMA_CROSS:
+        return f"{pair} EMA({data[CONF_FAST_PERIOD]}/{data[CONF_SLOW_PERIOD]}) {direction}"
+    if indicator == INDICATOR_MACD:
+        return f"{pair} MACD({data[CONF_FAST_PERIOD]},{data[CONF_SLOW_PERIOD]},{data[CONF_SIGNAL_PERIOD]}) {direction}"
+    if indicator == INDICATOR_BOLLINGER:
+        return f"{pair} Bollinger {data[CONF_BAND]} band ({data[CONF_PERIOD]},{data[CONF_STD_MULT]})"
+    if indicator == INDICATOR_VOLUME_SPIKE:
+        return f"{pair} volume spike {data[CONF_MULTIPLIER]}x ({data[CONF_PERIOD]}c)"
+    if indicator == INDICATOR_SPREAD:
+        return f"{pair} spread {direction} {data[CONF_THRESHOLD]}%"
+    if indicator == INDICATOR_OBI:
+        return f"{pair} OBI {direction} {data[CONF_THRESHOLD]}"
+    if indicator == INDICATOR_ATR_BREAKOUT:
+        return f"{pair} ATR({data[CONF_PERIOD]}) breakout {data[CONF_MULTIPLIER]}x"
     return pair
+
+
+# One schema builder per indicator type; keys double as the menu order shown
+# in the "Add alert rule" UI.
+_INDICATOR_SCHEMAS = {
+    INDICATOR_PRICE: _price_schema,
+    INDICATOR_PRICE_CHANGE: _price_change_schema,
+    INDICATOR_RSI: _rsi_schema,
+    INDICATOR_EMA_CROSS: _ema_cross_schema,
+    INDICATOR_MACD: _macd_schema,
+    INDICATOR_BOLLINGER: _bollinger_schema,
+    INDICATOR_VOLUME_SPIKE: _volume_spike_schema,
+    INDICATOR_SPREAD: _spread_schema,
+    INDICATOR_OBI: _obi_schema,
+    INDICATOR_ATR_BREAKOUT: _atr_breakout_schema,
+}
 
 
 class AlertRuleSubentryFlow(ConfigSubentryFlow):
@@ -299,7 +495,10 @@ class AlertRuleSubentryFlow(ConfigSubentryFlow):
     async_step_user's menu; each menu choice is its own indicator-specific
     form. The entry page's per-rule edit button drives async_step_reconfigure,
     which re-derives which form to show from the existing subentry's stored
-    `indicator` field.
+    `indicator` field. The per-indicator `async_step_*` methods are generated
+    below the class body — HA's flow framework resolves a step strictly by
+    `async_step_<step_id>` method name, so each menu option/step id needs a
+    real method to land on.
 
     Deliberately uses plain async_update_and_abort (no auto-reload) on
     reconfigure, not the newer async_update_reload_and_abort — this
@@ -310,35 +509,14 @@ class AlertRuleSubentryFlow(ConfigSubentryFlow):
     """
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        return self.async_show_menu(
-            step_id="user", menu_options=[INDICATOR_PRICE, INDICATOR_PRICE_CHANGE, INDICATOR_RSI]
-        )
-
-    async def async_step_price(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(INDICATOR_PRICE, _price_schema, user_input)
-
-    async def async_step_price_change(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(INDICATOR_PRICE_CHANGE, _price_change_schema, user_input)
-
-    async def async_step_rsi(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(INDICATOR_RSI, _rsi_schema, user_input)
+        return self.async_show_menu(step_id="user", menu_options=list(_INDICATOR_SCHEMAS))
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
         indicator = self._get_reconfigure_subentry().data[CONF_INDICATOR]
         return await getattr(self, f"async_step_reconfigure_{indicator}")(user_input)
 
-    async def async_step_reconfigure_price(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(INDICATOR_PRICE, _price_schema, user_input, reconfigure=True)
-
-    async def async_step_reconfigure_price_change(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(
-            INDICATOR_PRICE_CHANGE, _price_change_schema, user_input, reconfigure=True
-        )
-
-    async def async_step_reconfigure_rsi(self, user_input: dict[str, Any] | None = None):
-        return await self._show_or_save(INDICATOR_RSI, _rsi_schema, user_input, reconfigure=True)
-
-    async def _show_or_save(self, indicator, schema_fn, user_input, *, reconfigure: bool = False):
+    async def _show_or_save(self, indicator, user_input, *, reconfigure: bool = False):
+        schema_fn = _INDICATOR_SCHEMAS[indicator]
         if user_input is not None:
             data = dict(user_input)
             data[CONF_PAIR] = str(data[CONF_PAIR]).strip().upper()
@@ -353,3 +531,19 @@ class AlertRuleSubentryFlow(ConfigSubentryFlow):
         defaults = self._get_reconfigure_subentry().data if reconfigure else None
         step_id = f"reconfigure_{indicator}" if reconfigure else indicator
         return self.async_show_form(step_id=step_id, data_schema=schema_fn(defaults))
+
+
+def _make_step(indicator: str, reconfigure: bool):
+    async def _step(self: AlertRuleSubentryFlow, user_input: dict[str, Any] | None = None):
+        return await self._show_or_save(indicator, user_input, reconfigure=reconfigure)
+
+    return _step
+
+
+for _indicator in _INDICATOR_SCHEMAS:
+    setattr(AlertRuleSubentryFlow, f"async_step_{_indicator}", _make_step(_indicator, False))
+    setattr(
+        AlertRuleSubentryFlow,
+        f"async_step_reconfigure_{_indicator}",
+        _make_step(_indicator, True),
+    )

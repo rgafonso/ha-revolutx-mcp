@@ -149,13 +149,24 @@ All entities group under one HA device ("Revolut X") per config entry.
 
 From the integration's entry page (Settings → Devices & Services → Revolut X
 MCP), an **"Add alert rule"** button lets you define independent alert rules
-— no YAML, no code. Each rule picks one of 3 indicator types and gets its own
+— no YAML, no code. Each rule picks one of 10 indicator types (full parity
+with the upstream `revx` CLI's `monitor` command group) and gets its own
 form:
 
 - **Price threshold**: pair, direction (above/below), threshold price.
 - **Price change %**: pair, direction (rise/fall), threshold %, lookback (in
   1-hour candles).
 - **RSI**: pair, direction (above/below), threshold (0-100), period.
+- **EMA crossover**: pair, direction (bullish/bearish), fast/slow periods.
+- **MACD**: pair, direction (bullish/bearish), fast/slow/signal periods.
+- **Bollinger Bands**: pair, band (upper/lower), period, stdev multiplier.
+- **Volume spike**: pair, baseline period, spike multiplier (current 1h
+  candle's volume vs. the average of the preceding candles).
+- **Bid-ask spread**: pair, direction, threshold % (from the live ticker).
+- **Order book imbalance**: pair, direction, threshold (−1..1, computed
+  over the top 20 book levels per side).
+- **ATR breakout**: pair, ATR period, multiplier — fires on a large move in
+  *either* direction.
 
 Every rule can optionally pick a `notify.*` target — when the rule's
 condition transitions from not-met to met, this integration calls
@@ -171,10 +182,10 @@ which is why this integration now requires **HA 2025.3.0+**.
 
 How often rules are checked is configurable in Options → **Alert check
 interval** (default 30s, floor 5s) — separate from, and much shorter than,
-the balance/order poll interval, since alerting needs a tighter loop.
-
-Only 3 of the upstream `revx` CLI's 10 indicator types are implemented so
-far (price threshold, price-change %, RSI) — see `ROADMAP.md` for the rest.
+the balance/order poll interval, since alerting needs a tighter loop. Each
+check fetches per pair only what that pair's rules actually need: the
+ticker always, 1h candles only for candle-based indicators, the order book
+only for OBI rules.
 
 Balance/active-order polling interval is configurable in Options → **Account
 data poll interval** (default 5 minutes) — kept conservative since Revolut X's
@@ -223,8 +234,4 @@ the integration.
   strategy, unsupervised) — `grid_backtest`/`grid_optimize` are stateless
   simulation only. See [ROADMAP.md](../../ROADMAP.md) for why this needs its
   own dedicated safety design before it's picked up.
-- 7 of the upstream `revx` CLI's 10 price-alert indicator types (EMA-cross,
-  MACD, Bollinger, volume-spike, spread, order-book imbalance, ATR-breakout)
-  — price threshold, price-change %, and RSI are implemented. See
-  [ROADMAP.md](../../ROADMAP.md).
 - Sidebar admin panel, websocket API, update-checking.

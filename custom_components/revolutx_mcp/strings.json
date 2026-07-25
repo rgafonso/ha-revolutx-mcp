@@ -59,7 +59,14 @@
           "menu_options": {
             "price": "Price threshold",
             "price_change": "Price change %",
-            "rsi": "RSI"
+            "rsi": "RSI",
+            "ema_cross": "EMA crossover",
+            "macd": "MACD",
+            "bollinger": "Bollinger Bands",
+            "volume_spike": "Volume spike",
+            "spread": "Bid-ask spread",
+            "obi": "Order book imbalance",
+            "atr_breakout": "ATR breakout"
           }
         },
         "price": {
@@ -71,7 +78,26 @@
             "notify_target": "Notify target (optional)"
           }
         },
+        "reconfigure_price": {
+          "title": "Price threshold alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold price",
+            "notify_target": "Notify target (optional)"
+          }
+        },
         "price_change": {
+          "title": "Price change % alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold (%)",
+            "lookback": "Lookback (1h candles)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_price_change": {
           "title": "Price change % alert",
           "data": {
             "pair": "Pair (e.g. BTC-USD)",
@@ -91,25 +117,6 @@
             "notify_target": "Notify target (optional)"
           }
         },
-        "reconfigure_price": {
-          "title": "Price threshold alert",
-          "data": {
-            "pair": "Pair (e.g. BTC-USD)",
-            "direction": "Direction",
-            "threshold": "Threshold price",
-            "notify_target": "Notify target (optional)"
-          }
-        },
-        "reconfigure_price_change": {
-          "title": "Price change % alert",
-          "data": {
-            "pair": "Pair (e.g. BTC-USD)",
-            "direction": "Direction",
-            "threshold": "Threshold (%)",
-            "lookback": "Lookback (1h candles)",
-            "notify_target": "Notify target (optional)"
-          }
-        },
         "reconfigure_rsi": {
           "title": "RSI alert",
           "data": {
@@ -117,6 +124,140 @@
             "direction": "Direction",
             "threshold": "RSI threshold (0-100)",
             "period": "RSI period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "ema_cross": {
+          "title": "EMA crossover alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "fast_period": "Fast EMA period",
+            "slow_period": "Slow EMA period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_ema_cross": {
+          "title": "EMA crossover alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "fast_period": "Fast EMA period",
+            "slow_period": "Slow EMA period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "macd": {
+          "title": "MACD alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "fast_period": "Fast period",
+            "slow_period": "Slow period",
+            "signal_period": "Signal period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_macd": {
+          "title": "MACD alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "fast_period": "Fast period",
+            "slow_period": "Slow period",
+            "signal_period": "Signal period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "bollinger": {
+          "title": "Bollinger Bands alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "band": "Band to watch",
+            "period": "Period (candles)",
+            "std_mult": "Standard deviation multiplier",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_bollinger": {
+          "title": "Bollinger Bands alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "band": "Band to watch",
+            "period": "Period (candles)",
+            "std_mult": "Standard deviation multiplier",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "volume_spike": {
+          "title": "Volume spike alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "period": "Baseline period (candles)",
+            "multiplier": "Spike multiplier (x average)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_volume_spike": {
+          "title": "Volume spike alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "period": "Baseline period (candles)",
+            "multiplier": "Spike multiplier (x average)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "spread": {
+          "title": "Bid-ask spread alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Spread threshold (%)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_spread": {
+          "title": "Bid-ask spread alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Spread threshold (%)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "obi": {
+          "title": "Order book imbalance alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "OBI threshold (-1 to 1)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_obi": {
+          "title": "Order book imbalance alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "OBI threshold (-1 to 1)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "atr_breakout": {
+          "title": "ATR breakout alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "period": "ATR period",
+            "multiplier": "ATR multiplier",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_atr_breakout": {
+          "title": "ATR breakout alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "period": "ATR period",
+            "multiplier": "ATR multiplier",
             "notify_target": "Notify target (optional)"
           }
         }

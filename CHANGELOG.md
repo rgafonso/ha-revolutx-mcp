@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.7.0
+
+- Added the remaining 7 price-alert indicator types, reaching full parity
+  with the upstream `revx` CLI's 10 `monitor` types (0.6.0 shipped the first
+  3): **EMA crossover** (fast/slow periods, bullish/bearish), **MACD**
+  (fast/slow/signal periods, bullish/bearish), **Bollinger Bands**
+  (upper/lower band, period, stdev multiplier), **volume spike** (baseline
+  period, spike multiplier — current candle's volume vs. the average of the
+  `period` candles *preceding* it, matching upstream's exclusion of the
+  current candle from its own baseline), **bid-ask spread** (% threshold,
+  from the ticker's bid/ask), **order book imbalance**
+  (`(bidVol−askVol)/(bidVol+askVol)` over the top 20 levels per side,
+  −1..1 threshold), and **ATR breakout** (period, multiplier — fires on a
+  large move in *either* direction, like upstream's no-direction-flag
+  `atr-breakout`). All indicator math follows the shapes confirmed against
+  upstream's `cli/src/shared/indicators/core.ts` in this session's earlier
+  research (Wilder smoothing for ATR like RSI, standard `2/(period+1)` EMA,
+  MACD signal = EMA of the MACD series), with one deliberate divergence:
+  Bollinger's population stdev uses Python's built-in `Decimal.sqrt()`
+  rather than porting upstream's hand-rolled Newton's-method sqrt, which
+  only exists there because JS lacks an arbitrary-precision decimal sqrt.
+- `alert_coordinator.py` now fetches per pair only what the rules on that
+  pair actually need: ticker (always), 1h candles (sized to the largest
+  period/lookback among that pair's candle-based rules), and the order book
+  (only if an OBI rule watches the pair). `Candle` (backtest.py) gained a
+  `volume` field — parsed leniently (defaults to 0) since only the
+  volume-spike indicator reads it and grid-backtest math never did.
+- `config_flow.py`: the "Add alert rule" menu now lists all 10 types; the
+  per-indicator `async_step_*`/`async_step_reconfigure_*` methods are
+  generated from a single `_INDICATOR_SCHEMAS` table rather than 20
+  hand-written near-identical methods (HA's flow framework resolves steps
+  strictly by method name, so the methods must genuinely exist —
+  `setattr` in a loop, not `__getattr__` tricks).
+- Tests: 26 new evaluator tests (51 total). Coordinator dispatch for all 7
+  new types verified via the same scripted end-to-end simulation approach
+  as 0.6.0 (real `ConfigSubentry` objects, mocked client) — including
+  confirming an initially surprising-but-correct MACD result: on perfectly
+  linear rising closes MACD converges to equal its own signal line
+  (histogram → 0, not bullish); a flat-then-accelerating series triggers
+  it properly.
+
 ## 0.6.0
 
 - Added price-alert monitoring — the second `ROADMAP.md` item. From the

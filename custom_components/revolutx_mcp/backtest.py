@@ -51,6 +51,7 @@ class Candle:
     high: Decimal
     low: Decimal
     close: Decimal
+    volume: Decimal = Decimal(0)
 
 
 @dataclass
@@ -84,6 +85,10 @@ def _parse_candles(raw: list[dict[str, Any]]) -> list[Candle]:
                     high=Decimal(str(item["high"])),
                     low=Decimal(str(item["low"])),
                     close=Decimal(str(item["close"])),
+                    # Lenient: volume is only used by the volume-spike alert indicator,
+                    # not by grid-backtest math, so a missing/invalid value shouldn't
+                    # break candle parsing for callers that don't need it.
+                    volume=Decimal(str(item.get("volume", "0")) or "0"),
                 )
             )
         except (KeyError, TypeError, ValueError, InvalidOperation):
