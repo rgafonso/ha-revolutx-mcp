@@ -1,5 +1,7 @@
 # Revolut X Trading MCP
 
+<img src="logo.png" alt="Revolut X Trading MCP" width="96" height="96">
+
 Exposes Revolut X crypto exchange market data, account, and trading tools to
 Claude Desktop and Claude Code via MCP.
 

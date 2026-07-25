@@ -1,5 +1,7 @@
 # Revolut X MCP (Home Assistant custom_component)
 
+<img src="logo.png" alt="Revolut X MCP" width="96" height="96">
+
 An in-process Home Assistant integration that exposes read-only Revolut X market
 data and account tools over MCP (Model Context Protocol) — no separate container,
 no Node.js, works on Home Assistant OS, Supervised, Container, and Core.
