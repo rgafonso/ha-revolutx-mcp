@@ -4,35 +4,31 @@
 # creates per config entry — see the "Entities" section of this directory's
 # README.md for what each one means.
 #
-# Two groups of entities need to be adjusted for YOUR account before this is
-# usable as-is (everything else is a fixed entity ID and will work unchanged):
+# The Balances and Price alerts sections use the community "auto-entities"
+# card (https://github.com/thomasloven/lovelace-auto-entities) to list their
+# entities dynamically, since both groups are account-specific and grow over
+# time: balance sensors are created per currency the first time it's seen,
+# and alert-rule sensors are created per rule you add from the integration's
+# own entry page, named after the rule's own title — so their entity IDs
+# can't be predicted or hardcoded here. Install "auto-entities" via
+# HACS > Frontend > search "auto-entities" > Download (HACS registers the
+# dashboard resource automatically), then reload the frontend.
 #
-#   1. Balances (## BALANCES section below) — one tile per currency you hold.
-#      This integration only creates a sensor for a currency once it's seen
-#      a nonzero-or-not balance for it, so the BTC/ETH/USD examples here are
-#      just that: examples. Go to Settings > Devices & services > Entities,
-#      filter by device "Revolut X", and swap in your own
-#      sensor.revolut_x_<currency>_balance entities.
-#
-#   2. Price alerts (## PRICE ALERTS section below) — one tile per alert rule
-#      you've created from the integration's own entry page. Each rule's
-#      entity ID is derived from the rule's own title, which you chose, so it
-#      can't be predicted here. Same Entities filter as above will show them
-#      (they're the non-"balance", non-diagnostic binary_sensor entities on
-#      the device) — copy the real entity IDs in.
+# Everything else (Account, Service health) uses fixed, predictable entity
+# IDs and needs no adjustment.
 #
 # How to use this file:
 #   Settings > Dashboards > Add dashboard > New dashboard from scratch, give
 #   it a name, open it, then the top-right three-dot menu > Edit dashboard >
 #   three-dot menu > Edit in YAML, and paste this file's contents over the
-#   placeholder. Adjust the two sections above, then Save.
+#   placeholder, then Save.
 
 title: Revolut X
 views:
   - title: Revolut X
     path: revolut-x
     type: sections
-    icon: mdi:currency-btc
+    icon: mdi:bitcoin
     max_columns: 3
     sections:
       - type: grid
@@ -41,19 +37,21 @@ views:
             heading: Balances
             heading_style: title
             icon: mdi:wallet-outline
-          # One tile per currency you hold — see note (1) above.
-          - type: tile
-            entity: sensor.revolut_x_btc_balance
-            grid_options:
-              columns: 4
-          - type: tile
-            entity: sensor.revolut_x_eth_balance
-            grid_options:
-              columns: 4
-          - type: tile
-            entity: sensor.revolut_x_usd_balance
-            grid_options:
-              columns: 4
+          # One tile per currency you hold, found by matching the balance
+          # sensors' entity_id pattern — no per-currency editing needed.
+          - type: custom:auto-entities
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              include:
+                - entity_id: "sensor.revolut_x_*_balance"
+                  options:
+                    type: tile
+            sort:
+              method: entity_id
 
       - type: grid
         cards:
@@ -75,16 +73,33 @@ views:
             heading: Price alerts
             heading_style: title
             icon: mdi:bell-alert-outline
-          # One tile per alert rule you've created — see note (2) above.
-          # state_content adds the rule's own "why" explanation under the
-          # on/off state (e.g. current RSI value vs. the rule's threshold).
-          - type: tile
-            entity: binary_sensor.revolut_x_your_alert_rule_name
-            state_content:
-              - state
-              - detail
-            grid_options:
-              columns: 6
+          # One tile per alert rule you've created, found as every
+          # binary_sensor on the Revolut X device except the three fixed
+          # diagnostic ones below (which are excluded by entity_id since
+          # their IDs — unlike alert rules' — are fixed and known upfront).
+          # state_content adds the rule's own "why" explanation (e.g.
+          # current RSI value vs. the rule's threshold) under the state.
+          - type: custom:auto-entities
+            card:
+              type: grid
+              columns: 2
+              square: false
+            card_param: cards
+            filter:
+              include:
+                - domain: binary_sensor
+                  device: Revolut X
+                  options:
+                    type: tile
+                    state_content:
+                      - state
+                      - detail
+              exclude:
+                - entity_id: binary_sensor.revolut_x_webhook_registered
+                - entity_id: binary_sensor.revolut_x_direct_server_running
+                - entity_id: binary_sensor.revolut_x_trading_enabled
+            sort:
+              method: name
 
       - type: grid
         cards:

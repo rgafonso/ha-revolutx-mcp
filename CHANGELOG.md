@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.1
+
+- `dashboard_example.yaml`: the Balances and Price alerts sections now list
+  their entities dynamically via the community
+  [auto-entities](https://github.com/thomasloven/lovelace-auto-entities)
+  card instead of shipping hardcoded example entity IDs — both groups grow
+  over time (balance sensors per currency first seen, alert-rule sensors
+  per rule you add, named after the rule's own title), so a static list was
+  always going to be wrong for most accounts. Balances match on the
+  `sensor.revolut_x_*_balance` entity_id pattern; alert rules match every
+  `binary_sensor` on the Revolut X device except the three fixed diagnostic
+  ones (`webhook_registered`, `direct_server_running`, `trading_enabled`),
+  excluded by entity_id since those IDs are fixed and known upfront, unlike
+  alert rules'. Requires installing `auto-entities` via HACS → Frontend —
+  now documented in the README's "Dashboard" section alongside the rest of
+  the file's usage instructions.
+
 ## 0.8.0
 
 - Added `custom_components/revolutx_mcp/dashboard_example.yaml`, a bundled

@@ -31,11 +31,15 @@ with the simulation tools that already exist.
 
 The account/alerts half is done: `custom_components/revolutx_mcp/dashboard_example.yaml`
 is a bundled example Lovelace dashboard (documented in that directory's
-README under "Dashboard"), built entirely from standard cards (tile, heading,
-grid) covering balances, active orders, price-alert rule status, and service
-health — confirming the "prefer standard Lovelace cards over a custom
-frontend component" direction below was sufficient for this half; no custom
-card was needed.
+README under "Dashboard"), covering balances, active orders, price-alert
+rule status, and service health. Standard cards (tile, heading, grid) were
+sufficient for everything with a fixed entity ID; the two entity groups that
+grow over time and can't be hardcoded (per-currency balance sensors,
+per-alert-rule sensors named after each rule's own title) are listed
+dynamically via the community `auto-entities` card instead — a filter-driven
+listing card, not a bespoke visualization, so it doesn't bear on the
+custom-card question below, which is specifically about whether a standard
+card can represent the live grid-bot's grid-vs-price view.
 
 What's still missing is grid-bot state (current price's position within the
 grid, open positions, realized P&L) — the kind of view the CLI's

@@ -195,14 +195,16 @@ specifically).
 ## Dashboard
 
 [`dashboard_example.yaml`](dashboard_example.yaml) is a bundled example
-Lovelace dashboard built entirely from standard cards (tile, heading, grid —
-no custom frontend component) covering balances, active orders, price-alert
-rule status, and service health. Two groups of entities in it (per-currency
-balance tiles, per-alert-rule tiles) are account-specific and need adjusting
-to your own entity IDs before use — the file's own header comments walk
-through that, and the [Entities](#entities) section above explains what each
-entity means. Import it via Settings → Dashboards → Add dashboard → New
-dashboard from scratch, then its three-dot menu → Edit in YAML.
+Lovelace dashboard covering balances, active orders, price-alert rule status,
+and service health, using standard cards (tile, heading, grid) for everything
+with a fixed, predictable entity ID. The two groups that grow over time —
+per-currency balance sensors and per-alert-rule sensors, the latter named
+after each rule's own title — are listed dynamically instead of hardcoded,
+via the community [auto-entities](https://github.com/thomasloven/lovelace-auto-entities)
+card (install via HACS → Frontend → search "auto-entities" → Download). The
+[Entities](#entities) section above explains what each entity means. Import
+the dashboard via Settings → Dashboards → Add dashboard → New dashboard from
+scratch, then its three-dot menu → Edit in YAML.
 
 Grid-bot state (grid levels vs. current price, open positions, realized P&L)
 isn't in this example yet — it depends on live grid-bot execution, which
