@@ -35,6 +35,42 @@ DEFAULT_POLL_INTERVAL_MINUTES = 5
 POLL_INTERVAL_MIN_MINUTES = 1
 POLL_INTERVAL_MAX_MINUTES = 1440
 
+# Price-alert monitoring (subentries) — a separate, faster-cadence poll than
+# the account-data coordinator above, mirroring the upstream revx CLI's own
+# monitor default (10s) / floor (5s).
+CONF_ALERT_CHECK_INTERVAL = "alert_check_interval"
+DEFAULT_ALERT_CHECK_INTERVAL_SECONDS = 30
+ALERT_CHECK_INTERVAL_MIN_SECONDS = 5
+ALERT_CHECK_INTERVAL_MAX_SECONDS = 3600
+
+SUBENTRY_TYPE_ALERT_RULE = "alert_rule"
+
+INDICATOR_PRICE = "price"
+INDICATOR_PRICE_CHANGE = "price_change"
+INDICATOR_RSI = "rsi"
+INDICATORS = [INDICATOR_PRICE, INDICATOR_PRICE_CHANGE, INDICATOR_RSI]
+
+CONF_INDICATOR = "indicator"
+CONF_PAIR = "pair"
+CONF_DIRECTION = "direction"
+CONF_THRESHOLD = "threshold"
+CONF_PERIOD = "period"
+CONF_LOOKBACK = "lookback"
+CONF_NOTIFY_TARGET = "notify_target"
+
+DIRECTION_ABOVE = "above"
+DIRECTION_BELOW = "below"
+DIRECTIONS_ABOVE_BELOW = [DIRECTION_ABOVE, DIRECTION_BELOW]
+
+DIRECTION_RISE = "rise"
+DIRECTION_FALL = "fall"
+DIRECTIONS_RISE_FALL = [DIRECTION_RISE, DIRECTION_FALL]
+
+DEFAULT_RSI_PERIOD = 14
+DEFAULT_RSI_THRESHOLD = 70
+DEFAULT_PRICE_CHANGE_LOOKBACK = 24
+DEFAULT_PRICE_CHANGE_THRESHOLD = 5
+
 REVX_API_BASE = "https://revx.revolut.com/api/1.0"
 
 # OAuth (legacy) token lifetimes, in seconds.

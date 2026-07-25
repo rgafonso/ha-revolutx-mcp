@@ -10,30 +10,19 @@ backtesting as long-standing goals too, but the direction below is specific to
 building these *inside* Home Assistant, not porting the add-on's Node/CLI
 approach — see "Why not port the CLI's model" below.
 
-## Price-alert monitoring
+## Remaining price-alert indicator types
 
-The upstream `revx` CLI's `monitor` command group (price thresholds, RSI,
-EMA-cross, MACD, Bollinger, volume-spike, spread, order-book imbalance,
-price-change, ATR-breakout) has no equivalent in this integration today.
-
-Direction if/when this gets built: use Home Assistant's own primitives instead
-of replicating the CLI's architecture:
-
-- **Polling**: `RevolutXDataUpdateCoordinator` (`coordinator.py`, added for
-  balance/active-order entities) is a plausible base to extend with
-  ticker/candle fetches, rather than polling independently with a second
-  `DataUpdateCoordinator` or a hand-rolled `while` loop.
-- **Delivery**: HA's own `notify.*` platform ecosystem (mobile app push,
-  email, any of the dozens of existing notify integrations), not a
-  hardcoded Telegram integration. Telegram is still available *through* HA's
-  notify platform if a user wants it, for free.
-- **State/persistence**: HA's own config-entry storage and entity state,
-  not hand-rolled JSON files in a config directory.
-- **Alert history**: represent triggered alerts as HA entities (e.g. a
-  `binary_sensor` or event entity per monitor) so they show up in HA's
-  existing Logbook/History for free — no separate `events` log/command needed,
-  that's what the CLI's `events` command had to build by hand precisely
-  because it didn't have a host platform like HA underneath it.
+Price-alert monitoring (add/view/remove alert rules from Settings, via HA's
+Config Subentries) shipped in 0.6.0 — see `CHANGELOG.md` for the full design.
+Only 3 of the upstream `revx` CLI's 10 `monitor` indicator types were ported:
+price threshold, price-change %, and RSI. The rest — EMA-cross, MACD,
+Bollinger, volume-spike, spread, order-book imbalance, ATR-breakout — aren't
+implemented yet. Adding one is mostly plumbing at this point: an evaluator
+function in `alert_indicators.py` (matching the existing
+`evaluate_price`/`evaluate_rsi` shape), a new `INDICATOR_*` constant, a
+subentry-flow step + schema in `config_flow.py`, and a branch in
+`RevolutXAlertCoordinator._evaluate_rule`. No architectural work left, just
+one indicator at a time as they're wanted.
 
 ## Live grid-bot execution
 
@@ -54,10 +43,10 @@ with the simulation tools that already exist.
 
 ## Dashboard for visualization
 
-Native HA entities now exist (balances, active orders, service health), so a
-basic dashboard tying those together is buildable today — but still depends on
-the two items above for the rest of the intended scope: monitors and a live
-grid bot. Once they exist too, a bundled example dashboard (or a documented Lovelace YAML
+Native HA entities (balances, active orders, service health) and price-alert
+rules now exist, so a dashboard covering both is buildable today — but still
+depends on live grid-bot execution (above) for the rest of the intended
+scope. Once that exists too, a bundled example dashboard (or a documented Lovelace YAML
 snippet in the README) tying them together would be worth adding: account
 balances/orders, which monitors are currently armed and how close they are to
 triggering, and grid-bot state (current price's position within the grid,

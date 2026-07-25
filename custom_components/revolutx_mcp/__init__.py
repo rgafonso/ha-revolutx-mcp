@@ -31,6 +31,7 @@ from .const import (
     DEFAULT_TRADING_ENABLED,
     DOMAIN,
 )
+from .alert_coordinator import RevolutXAlertCoordinator
 from .coordinator import RevolutXDataUpdateCoordinator
 from .direct_server import DirectServer
 from .oauth_legacy import async_register_views, issuer_url, webhook_resource_metadata_url
@@ -60,11 +61,13 @@ class RuntimeData:
         direct_server: DirectServer,
         coordinator: RevolutXDataUpdateCoordinator,
         stats: RequestStats,
+        alert_coordinator: RevolutXAlertCoordinator,
     ) -> None:
         self.client = client
         self.direct_server = direct_server
         self.coordinator = coordinator
         self.stats = stats
+        self.alert_coordinator = alert_coordinator
 
 
 def _base_url(hass: HomeAssistant, entry: ConfigEntry) -> str:
@@ -140,8 +143,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = RevolutXDataUpdateCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
 
+    alert_coordinator = RevolutXAlertCoordinator(hass, entry, client)
+    await alert_coordinator.async_config_entry_first_refresh()
+
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = RuntimeData(
-        client, direct_server, coordinator, stats
+        client, direct_server, coordinator, stats, alert_coordinator
     )
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

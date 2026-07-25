@@ -40,7 +40,85 @@
           "direct_server_port": "TCP port for the direct server, only used when it's enabled above.",
           "external_url": "Overrides the auto-detected base URL used for OAuth discovery metadata. Leave blank to auto-detect from Home Assistant's own URL settings.",
           "log_level": "Verbosity of this integration's log messages.",
-          "poll_interval": "How often the balance/active-orders sensors refresh. Revolut X's documented rate limits aren't generous (1000 requests/day for limit orders specifically), so minutes rather than seconds is the safe default."
+          "poll_interval": "How often the balance/active-orders sensors refresh. Revolut X's documented rate limits aren't generous (1000 requests/day for limit orders specifically), so minutes rather than seconds is the safe default.",
+          "alert_check_interval": "How often price-alert rules (below) are checked, in seconds. Separate from the account data interval above since alerts need a much shorter cadence — mirrors the upstream revx CLI's own default (10s) and floor (5s)."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "alert_rule": {
+      "entry_type": "Alert rule",
+      "initiate_flow": {
+        "user": "Add alert rule",
+        "reconfigure": "Reconfigure alert rule"
+      },
+      "step": {
+        "user": {
+          "title": "Choose alert type",
+          "menu_options": {
+            "price": "Price threshold",
+            "price_change": "Price change %",
+            "rsi": "RSI"
+          }
+        },
+        "price": {
+          "title": "Price threshold alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold price",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "price_change": {
+          "title": "Price change % alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold (%)",
+            "lookback": "Lookback (1h candles)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "rsi": {
+          "title": "RSI alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "RSI threshold (0-100)",
+            "period": "RSI period",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_price": {
+          "title": "Price threshold alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold price",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_price_change": {
+          "title": "Price change % alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "Threshold (%)",
+            "lookback": "Lookback (1h candles)",
+            "notify_target": "Notify target (optional)"
+          }
+        },
+        "reconfigure_rsi": {
+          "title": "RSI alert",
+          "data": {
+            "pair": "Pair (e.g. BTC-USD)",
+            "direction": "Direction",
+            "threshold": "RSI threshold (0-100)",
+            "period": "RSI period",
+            "notify_target": "Notify target (optional)"
+          }
         }
       }
     }

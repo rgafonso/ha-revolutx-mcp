@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.6.0
+
+- Added price-alert monitoring — the second `ROADMAP.md` item. From the
+  integration's entry page (Settings → Devices & Services → Revolut X MCP),
+  an **"Add alert rule"** button opens a menu of 3 indicator types (price
+  threshold, price-change %, RSI — the 3 most commonly wanted of the upstream
+  `revx` CLI's 10 `monitor` types; the rest are deferred, noted in
+  `ROADMAP.md`). Each rule gets its own form (pair, direction, threshold,
+  optional `notify.*` target) and, once saved, its own row on the entry page
+  with built-in edit/delete buttons — all automatic, no custom frontend code,
+  via Home Assistant's **Config Subentries** feature (`ConfigSubentryFlow`,
+  shipped HA core 2025.3.0). Deleting a rule automatically removes its
+  entity too (HA core ties entities tagged with `config_subentry_id` to
+  their subentry's lifecycle).
+  - Bumps the minimum supported HA version to **2025.3.0** (`hacs.json`,
+    plus a new `manifest.json` `min_ha_version` field — previously unset,
+    so nothing enforced a floor at all). Confirmed no viable way to get
+    add/view/remove UI for a list of user-defined items without it — this
+    was researched directly against `home-assistant/core` source
+    (`config_entries.py`, `entity_registry.py`), not assumed from memory.
+  - New `RevolutXAlertCoordinator` (`alert_coordinator.py`) — deliberately
+    separate from the account-data `RevolutXDataUpdateCoordinator`, since
+    alerts need a much shorter poll cadence (new **"Alert check interval"**
+    option, default 30s, floor 5s — mirrors the upstream CLI's own
+    default/floor) than balances/orders (5 min). Groups rules by pair so N
+    rules watching the same pair cost one ticker fetch, not N. Rules are
+    read from `entry.subentries` once at construction; any subentry
+    add/update/remove already triggers a full entry reload via this
+    integration's existing `entry.add_update_listener` (HA core routes all
+    subentry CRUD through the same `_async_update_entry` that fires it), so
+    a fresh coordinator with the current rule set is built on every change —
+    deliberately *not* using the newer `async_update_reload_and_abort()`
+    subentry-flow helper for this, since mixing it with an existing
+    `add_update_listener` is deprecated as of HA 2026.6 (hard error planned
+    2026.12).
+  - New `alert_indicators.py` — pure evaluator functions (price threshold,
+    price-change %, RSI with Wilder smoothing) matching the exact math
+    confirmed against the upstream CLI's `cli/src/shared/indicators/core.ts`
+    during this session's earlier research. Edge-triggered, not
+    level-triggered: a rule that stays met across many polls notifies once,
+    not every tick — same debounce semantics as the upstream CLI's own
+    monitor loop.
+  - Notification dispatch is owned by the integration itself (not left to a
+    user-authored automation): on a rule's not-met→met transition, calls
+    `notify.send_message` against the rule's configured target, if any. A
+    rule with no notify target still tracks state via its entity.
+  - New `RevolutXAlertRuleTriggeredSensor` (`binary_sensor.py`) — one
+    triggered/not-triggered entity per rule, satisfying `ROADMAP.md`'s
+    original "alert history" direction (Logbook/History for free once it's
+    an entity).
+  - Added `tests/test_alert_indicators.py` (14 tests: RSI math, all 3
+    evaluators' met/not-met paths, insufficient-history handling). The
+    subentry-flow/coordinator/entity wiring itself was verified via a
+    scripted end-to-end simulation (mocked `RevolutXClient` + a real
+    `ConfigSubentry`) confirming: rule creation validates through the
+    schema, the coordinator correctly triggers and dispatches
+    `notify.send_message` exactly once (not every poll) for both the ticker-
+    only price-threshold path and the candle-fetching RSI path, and the
+    entity reads back the right `is_on`/attributes — run against HA 2026.7.4
+    on a fresh Python 3.14 venv, since subentries require HA >=2025.3.0
+    (Python >=3.13), above what this repo's existing Python 3.12 dev venv
+    could run.
+
 ## 0.5.1
 
 - Added a `brand/` folder (`icon.png`, `icon@2x.png`, `logo.png`, `logo@2x.png`)

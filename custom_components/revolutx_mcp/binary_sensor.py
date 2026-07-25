@@ -6,13 +6,17 @@ these.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED, DOMAIN
+from .alert_coordinator import RevolutXAlertCoordinator
+from .const import CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED, DOMAIN, SUBENTRY_TYPE_ALERT_RULE
 from .device import device_info
 from .direct_server import DirectServer
 
@@ -28,6 +32,14 @@ async def async_setup_entry(
             RevolutXTradingEnabledSensor(entry),
         ]
     )
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_ALERT_RULE:
+            continue
+        async_add_entities(
+            [RevolutXAlertRuleTriggeredSensor(runtime.alert_coordinator, entry, subentry)],
+            config_subentry_id=subentry.subentry_id,
+        )
 
 
 class RevolutXWebhookRegisteredSensor(BinarySensorEntity):
@@ -88,3 +100,33 @@ class RevolutXTradingEnabledSensor(BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self._entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
+
+
+class RevolutXAlertRuleTriggeredSensor(CoordinatorEntity[RevolutXAlertCoordinator], BinarySensorEntity):
+    """Triggered/not for one price-alert rule (a subentry) — mirrors
+    RevolutXAlertCoordinator's edge-triggered evaluation, so it shows up in
+    HA's Logbook/History per ROADMAP.md's original "alert history" direction.
+    Removed automatically by HA core when its subentry is deleted (tagged
+    with config_subentry_id at creation, in this module's async_setup_entry).
+    """
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: RevolutXAlertCoordinator, entry: ConfigEntry, subentry) -> None:
+        super().__init__(coordinator)
+        self._subentry_id = subentry.subentry_id
+        self._attr_name = subentry.title
+        self._attr_unique_id = f"{entry.entry_id}_alert_{subentry.subentry_id}"
+        self._attr_device_info = device_info(entry)
+
+    @property
+    def is_on(self) -> bool | None:
+        state = self.coordinator.data.get(self._subentry_id) if self.coordinator.data else None
+        return state.triggered if state else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        state = self.coordinator.data.get(self._subentry_id) if self.coordinator.data else None
+        if not state:
+            return {}
+        return {"detail": state.detail, "last_triggered": state.last_triggered}

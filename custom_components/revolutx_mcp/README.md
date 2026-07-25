@@ -30,6 +30,9 @@ for a given Revolut X account.
 - Also exposes native Home Assistant entities (see [Entities](#entities) below) —
   balances, active orders, and service-health sensors — so this data shows up on
   dashboards, in History, and in automations without going through an MCP/LLM call.
+- Price-alert rules (see [Price alerts](#price-alerts) below) you add/edit/remove
+  entirely from the integration's own Settings page — no YAML, no MCP/LLM call
+  needed to manage them. **Requires Home Assistant 2025.3.0+.**
 - Bundles its own icon (`brand/icon.png`, `brand/logo.png` + `@2x` variants) using
   Home Assistant's [brands proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)
   (HA 2026.3+) — no submission to the separate `home-assistant/brands` repo
@@ -138,6 +141,40 @@ All entities group under one HA device ("Revolut X") per config entry.
 - **Trading enabled**: mirrors the `trading_enabled` options-flow toggle as a
   diagnostic binary sensor, so it's visible on a dashboard instead of only in
   Options.
+- **Alert rules**: one triggered/not-triggered binary sensor per price-alert
+  rule you've added (see [Price alerts](#price-alerts)), named after the
+  rule itself.
+
+## Price alerts
+
+From the integration's entry page (Settings → Devices & Services → Revolut X
+MCP), an **"Add alert rule"** button lets you define independent alert rules
+— no YAML, no code. Each rule picks one of 3 indicator types and gets its own
+form:
+
+- **Price threshold**: pair, direction (above/below), threshold price.
+- **Price change %**: pair, direction (rise/fall), threshold %, lookback (in
+  1-hour candles).
+- **RSI**: pair, direction (above/below), threshold (0-100), period.
+
+Every rule can optionally pick a `notify.*` target — when the rule's
+condition transitions from not-met to met, this integration calls
+`notify.send_message` against it directly (edge-triggered: a condition that
+stays true doesn't re-notify every check, only on the next off→on
+transition). No notify target? The rule still tracks its state via its
+binary sensor entity, so you can wire your own automation to it instead.
+
+Existing rules are listed right there on the entry page, each with its own
+**edit** and **delete** button — deleting a rule also removes its entity.
+This is all handled by Home Assistant's own **Config Subentries** feature,
+which is why this integration now requires **HA 2025.3.0+**.
+
+How often rules are checked is configurable in Options → **Alert check
+interval** (default 30s, floor 5s) — separate from, and much shorter than,
+the balance/order poll interval, since alerting needs a tighter loop.
+
+Only 3 of the upstream `revx` CLI's 10 indicator types are implemented so
+far (price threshold, price-change %, RSI) — see `ROADMAP.md` for the rest.
 
 Balance/active-order polling interval is configurable in Options → **Account
 data poll interval** (default 5 minutes) — kept conservative since Revolut X's
@@ -165,13 +202,15 @@ points to Revolut's official help center for current, authoritative details.
 ## Local development
 
 There's no Home Assistant instance in this repo to run the integration against
-directly. To verify changes:
+directly. Requires **Python 3.13+** (HA core itself has required it since
+2025.2.0, and this integration's price-alert feature needs Config Subentries,
+HA 2025.3.0+). To verify changes:
 
 ```bash
 python -m py_compile custom_components/revolutx_mcp/*.py
 pip install homeassistant cryptography aiohttp voluptuous
 python -c "import custom_components.revolutx_mcp"  # from the repo root
-python -m unittest discover -s tests -t .  # from the repo root — grid-backtest math only
+python -m unittest discover -s tests -t .  # from the repo root — pure-function tests (grid-backtest, coordinators, alert indicators)
 ```
 
 To actually run it, copy (or symlink) `custom_components/revolutx_mcp` into a real
@@ -180,8 +219,12 @@ the integration.
 
 ## Not implemented (out of scope for this version)
 
-- Price-alert monitoring and other stateful/long-running background features
-  (grid-strategy backtesting is implemented as a stateless simulation tool;
-  ongoing monitoring would need persistent background state this integration
-  doesn't have). See [ROADMAP.md](../../ROADMAP.md) for the intended direction.
+- Live grid-bot execution (placing real orders continuously against a grid
+  strategy, unsupervised) — `grid_backtest`/`grid_optimize` are stateless
+  simulation only. See [ROADMAP.md](../../ROADMAP.md) for why this needs its
+  own dedicated safety design before it's picked up.
+- 7 of the upstream `revx` CLI's 10 price-alert indicator types (EMA-cross,
+  MACD, Bollinger, volume-spike, spread, order-book imbalance, ATR-breakout)
+  — price threshold, price-change %, and RSI are implemented. See
+  [ROADMAP.md](../../ROADMAP.md).
 - Sidebar admin panel, websocket API, update-checking.
