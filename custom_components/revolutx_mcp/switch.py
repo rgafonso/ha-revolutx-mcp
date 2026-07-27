@@ -8,9 +8,18 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ATTR_CATEGORY, CATEGORY_STRATEGY, DOMAIN, SUBENTRY_TYPE_GRID_BOT
+from .const import (
+    ATTR_CATEGORY,
+    CATEGORY_HEALTH,
+    CATEGORY_STRATEGY,
+    CONF_TRADING_ENABLED,
+    DEFAULT_TRADING_ENABLED,
+    DOMAIN,
+    SUBENTRY_TYPE_GRID_BOT,
+)
 from .device import device_info
 from .grid_bot import GridBotEngine
 
@@ -20,6 +29,8 @@ async def async_setup_entry(
 ) -> None:
     runtime = hass.data[DOMAIN][entry.entry_id]
 
+    async_add_entities([RevolutXTradingEnabledSwitch(hass, entry)])
+
     for subentry in entry.subentries.values():
         if subentry.subentry_type != SUBENTRY_TYPE_GRID_BOT:
             continue
@@ -28,6 +39,53 @@ async def async_setup_entry(
             [RevolutXGridBotSwitch(engine, entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
+
+
+class RevolutXTradingEnabledSwitch(SwitchEntity):
+    """Turns the `trading_enabled` options-flow value on/off directly from a
+    dashboard, instead of only via Settings > Options. Writing through
+    `hass.config_entries.async_update_entry` fires the same update listener
+    (`__init__._async_update_listener`) a change made through the Options UI
+    already would, which fully reloads this config entry — including
+    `async_unload_entry`'s existing handling of live grid bots (their
+    resting orders get cancelled if trading is being turned off, or just
+    paused-and-resumed if it's staying on) — so no separate control logic
+    is needed here, only writing the option.
+
+    Turning this off while a grid bot is running will cancel its live
+    resting orders, same as flipping it off in Options today.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trading_enabled"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_should_poll = False
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trading_enabled"
+        self._attr_device_info = device_info(entry)
+
+    @property
+    def is_on(self) -> bool:
+        return self._entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self._async_set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self._async_set(False)
+
+    @callback
+    def _async_set(self, value: bool) -> None:
+        self._hass.config_entries.async_update_entry(
+            self._entry, options={**self._entry.options, CONF_TRADING_ENABLED: value}
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CATEGORY: CATEGORY_HEALTH}
 
 
 class RevolutXGridBotSwitch(SwitchEntity):

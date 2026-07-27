@@ -151,9 +151,12 @@ thing" on their own.
   `direct_server_running`) exist too, but read their own docstrings before
   relying on them: `webhook_registered` only ever means "this config entry is
   loaded," not "reachable over the network."
-- **Trading enabled**: mirrors the `trading_enabled` options-flow toggle as a
-  diagnostic binary sensor, so it's visible on a dashboard instead of only in
-  Options.
+- **Trading enabled**: a switch (`switch.revolut_x_trading_enabled`) that
+  reads and writes the same `trading_enabled` options-flow value, so it can
+  be toggled directly from a dashboard instead of only via Settings >
+  Options — flipping it triggers the exact same config-entry reload either
+  path already causes. Turning it off while a grid bot is running cancels
+  that bot's live resting orders, same as changing it in Options today.
 - **Alert rules**: one triggered/not-triggered binary sensor per price-alert
   rule you've added (see [Price alerts](#price-alerts)), named after the
   rule itself.
@@ -275,7 +278,12 @@ after each rule's own title — are listed dynamically instead of hardcoded,
 via the community [auto-entities](https://github.com/thomasloven/lovelace-auto-entities)
 card (install via HACS → Frontend → search "auto-entities" → Download),
 filtering on each entity's `revolut_x_category` attribute rather than
-entity_id patterns. The
+entity_id patterns. Balances are additionally rendered with the community
+[bar-card](https://github.com/custom-cards/bar-card) (install via
+HACS → Frontend → search "bar-card" → Download) instead of a plain tile —
+each currency's bar fills to its "available" amount out of a max of
+available + reserved, so the unfilled remainder of the bar is the reserved
+amount, a proportional stacked view rather than a bare number. The
 [Entities](#entities) section above explains what each entity means. Import
 the dashboard via Settings → Dashboards → Add dashboard → New dashboard from
 scratch, then its three-dot menu → Edit in YAML.

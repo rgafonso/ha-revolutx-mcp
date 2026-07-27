@@ -1,14 +1,14 @@
-"""Binary sensors: rough "is this working" signals, plus trading_enabled
-mirrored as an entity. See each class's docstring for what it does and does
-not detect — the request-count/last-served sensors in sensor.py are the
-actually useful "did my MCP server silently stop responding" signal, not
-these.
+"""Binary sensors: rough "is this working" signals. See each class's
+docstring for what it does and does not detect — the request-count/
+last-served sensors in sensor.py are the actually useful "did my MCP server
+silently stop responding" signal, not these. `trading_enabled` used to be
+mirrored here read-only; it's now a controllable switch (see switch.py).
 """
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -16,15 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .alert_coordinator import RevolutXAlertCoordinator
-from .const import (
-    ATTR_CATEGORY,
-    CATEGORY_HEALTH,
-    CATEGORY_MONITOR,
-    CONF_TRADING_ENABLED,
-    DEFAULT_TRADING_ENABLED,
-    DOMAIN,
-    SUBENTRY_TYPE_ALERT_RULE,
-)
+from .const import ATTR_CATEGORY, CATEGORY_HEALTH, CATEGORY_MONITOR, DOMAIN, SUBENTRY_TYPE_ALERT_RULE
 from .device import device_info
 from .direct_server import DirectServer
 
@@ -37,7 +29,6 @@ async def async_setup_entry(
         [
             RevolutXWebhookRegisteredSensor(entry),
             RevolutXDirectServerRunningSensor(entry, runtime.direct_server),
-            RevolutXTradingEnabledSensor(entry),
         ]
     )
 
@@ -59,6 +50,7 @@ class RevolutXWebhookRegisteredSensor(BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_translation_key = "webhook_registered"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_should_poll = False
     _attr_is_on = True
@@ -78,6 +70,7 @@ class RevolutXDirectServerRunningSensor(BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_translation_key = "direct_server_running"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_should_poll = False
 
@@ -89,33 +82,6 @@ class RevolutXDirectServerRunningSensor(BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self._direct_server.is_running
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        return {ATTR_CATEGORY: CATEGORY_HEALTH}
-
-
-class RevolutXTradingEnabledSensor(BinarySensorEntity):
-    """Mirrors the trading_enabled options-flow toggle so it's visible on a
-    dashboard instead of only in Settings > Options. Any options change
-    already triggers a full entry reload (see __init__._async_update_listener),
-    which recreates this entity with the fresh value — no separate update
-    listener needed here.
-    """
-
-    _attr_has_entity_name = True
-    _attr_translation_key = "trading_enabled"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_should_poll = False
-
-    def __init__(self, entry: ConfigEntry) -> None:
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_trading_enabled"
-        self._attr_device_info = device_info(entry)
-
-    @property
-    def is_on(self) -> bool:
-        return self._entry.options.get(CONF_TRADING_ENABLED, DEFAULT_TRADING_ENABLED)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

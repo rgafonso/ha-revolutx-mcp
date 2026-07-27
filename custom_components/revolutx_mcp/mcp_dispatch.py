@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
@@ -526,7 +527,28 @@ def _result(request_id: Any, result: Any) -> dict[str, Any]:
 async def handle_message(
     client: RevolutXClient, message: dict[str, Any], trading_enabled: bool = False
 ) -> dict[str, Any] | None:
-    """Handle one JSON-RPC 2.0 request and return a response, or None for notifications."""
+    """Time and log one JSON-RPC 2.0 request/response at DEBUG, delegating the
+    actual dispatch to `_dispatch` — mirrors revolut_client.py's `_request`
+    logging (method/outcome/duration, nothing sensitive), for the inbound
+    side of this integration's own MCP server.
+    """
+    start = time.monotonic()
+    response = await _dispatch(client, message, trading_enabled)
+    elapsed_ms = (time.monotonic() - start) * 1000
+
+    method = message.get("method")
+    detail = ""
+    if method == "tools/call":
+        detail = f" tool={(message.get('params') or {}).get('name')}"
+    outcome = "notification" if response is None else ("error" if "error" in response else "ok")
+    _LOGGER.debug("MCP request %s%s -> %s (%.0fms)", method, detail, outcome, elapsed_ms)
+
+    return response
+
+
+async def _dispatch(
+    client: RevolutXClient, message: dict[str, Any], trading_enabled: bool = False
+) -> dict[str, Any] | None:
     method = message.get("method")
     request_id = message.get("id")
     params = message.get("params") or {}

@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import aiohttp_client, entity_registry as er
 from homeassistant.helpers.network import get_url
 
 from .const import (
@@ -92,7 +92,23 @@ def _base_url(hass: HomeAssistant, entry: ConfigEntry) -> str:
     return get_url(hass, prefer_external=True)
 
 
+def _remove_stale_trading_enabled_binary_sensor(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """`trading_enabled` moved from a read-only binary_sensor to a
+    controllable switch (same unique_id, different domain/platform) — clean
+    up the now-orphaned binary_sensor registry entry so it doesn't linger as
+    a broken "not provided by the integration" entity. A no-op after the
+    first run once the old entry is gone.
+    """
+    ent_reg = er.async_get(hass)
+    old_entity_id = ent_reg.async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{entry.entry_id}_trading_enabled"
+    )
+    if old_entity_id:
+        ent_reg.async_remove(old_entity_id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    _remove_stale_trading_enabled_binary_sensor(hass, entry)
     session = aiohttp_client.async_get_clientsession(hass)
     private_key = load_private_key(entry.data[CONF_PRIVATE_KEY])
     client = RevolutXClient(session, entry.data[CONF_API_KEY], private_key, hass=hass)

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.4
+
+- **Trading enabled** is now a switch (`switch.revolut_x_trading_enabled`)
+  instead of a read-only diagnostic binary sensor, so it can be toggled
+  directly from a dashboard instead of only via Settings > Options.
+  Toggling it writes straight through to the same `trading_enabled`
+  options-flow value, reusing the config-entry reload (and its existing
+  live-grid-bot pause-vs-cancel handling) that changing it in Options
+  already triggers. The old `binary_sensor.revolut_x_trading_enabled`
+  entity is gone — its now-orphaned registry entry is cleaned up
+  automatically on next setup, but any automations/dashboards referencing
+  the old entity_id need updating by hand.
+- Balances now render with the community
+  [bar-card](https://github.com/custom-cards/bar-card) instead of a plain
+  tile in `dashboard_example.yaml`: each currency's bar fills to its
+  available amount out of a max of available + reserved, so the unfilled
+  remainder is the reserved amount — a proportional, stacked view instead of
+  a bare number. Requires installing `bar-card` via HACS in addition to the
+  already-required `auto-entities`.
+- `webhook_registered` and `direct_server_running` now carry the
+  `connectivity` device class.
+- Every inbound MCP request (`tools/call`, `tools/list`, `ping`, ...) is now
+  logged at DEBUG level (method, tool name, outcome, duration), mirroring
+  the outbound Revolut X REST request logging added in 0.9.2.
+
 ## 0.9.3
 
 - Active orders now get their own entity, one per currently-open order (e.g.

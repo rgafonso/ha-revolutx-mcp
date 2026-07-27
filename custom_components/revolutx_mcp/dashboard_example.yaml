@@ -14,17 +14,32 @@
 # HACS > Frontend > search "auto-entities" > Download (HACS registers the
 # dashboard resource automatically), then reload the frontend.
 #
-# Both sections match entities via `filter.include`'s `attributes` clause on
-# the `revolut_x_category` attribute every entity in this integration
-# carries (values: account/health/order/monitor/strategy) rather than
-# entity_id patterns or device membership — simpler and automatically
-# correct as new entities of a given category are added. Each card's
-# `options.name` is built natively from entity metadata (`type: entity`,
-# optionally combined with `type: detail` for a second line) so the
-# repeated "Revolut X " device-name prefix — every entity here has
-# has_entity_name + a shared device, so its default friendly_name is
-# "Revolut X <whatever>" — never shows up on a tile, with no Jinja template
-# or device-name assumption to keep in sync if you rename the device.
+# Both sections match entities on the `revolut_x_category` attribute every
+# entity in this integration carries (values:
+# account/health/order/monitor/strategy) rather than entity_id patterns or
+# device membership — simpler and automatically correct as new entities of a
+# given category are added. They differ in how each entity's card config is
+# built, though:
+#   - Price alerts uses auto-entities' native `filter.include`/`options`
+#     form — no per-entity computation needed, so the simpler, non-Jinja
+#     option is preferred. `options.name` is built from entity metadata
+#     (`type: entity` + `type: detail` for a second line) so the repeated
+#     "Revolut X " device-name prefix (every entity here has has_entity_name
+#     + a shared device) never shows up on a tile.
+#   - Balances uses a `filter.template` Jinja expression instead, because
+#     each currency's bar (see below) needs a `max` computed from that
+#     specific entity's own `reserved` attribute — a per-entity dynamic
+#     value the native `include` form has no way to produce.
+#
+# Balances renders each currency as one row of the community "bar-card"
+# (https://github.com/custom-cards/bar-card — install via
+# HACS > Frontend > search "bar-card" > Download) instead of a plain tile:
+# the bar's `entity` is the balance sensor (state = spendable "available"
+# amount) and its `max` is set to available + reserved, so the filled
+# portion of the bar is the available amount and the unfilled remainder is
+# exactly the reserved amount — a proportional, stacked available/reserved
+# view rather than just a bare number. The reserved amount is also spelled
+# out in the row's name for a value you can read without eyeballing the bar.
 #
 # Everything else (Account, Service health) uses fixed, predictable entity
 # IDs and needs no adjustment.
@@ -51,19 +66,22 @@ views:
             icon: mdi:wallet-outline
           - type: custom:auto-entities
             card:
-              type: grid
-              columns: 1
-              square: false
-            card_param: cards
+              type: custom:bar-card
+              stack: vertical
+            card_param: entities
             filter:
-              include:
-                - options:
-                    type: tile
-                    icon: mdi:cash
-                    name:
-                      type: entity
-                  attributes:
-                    revolut_x_category: account
+              template: >
+                [
+                {%- for e in states.sensor
+                    | selectattr('attributes.revolut_x_category', 'eq', 'account')
+                    | map(attribute='entity_id') %}
+                {'entity': '{{ e }}',
+                 'name': '{{ state_attr(e, "unit_of_measurement") }} (reserved {{ state_attr(e, "reserved") or "0" }})',
+                 'max': {{ (states(e) | float(0)) + (state_attr(e, "reserved") | float(0)) }},
+                 'icon': 'mdi:cash',
+                 'positions': {'minmax': 'outside'}},
+                {%- endfor %}
+                ]
             grid_options:
               columns: full
             sort:
@@ -132,7 +150,7 @@ views:
             grid_options:
               columns: 4
           - type: tile
-            entity: binary_sensor.revolut_x_trading_enabled
+            entity: switch.revolut_x_trading_enabled
             name: Trading enabled
             grid_options:
               columns: 4

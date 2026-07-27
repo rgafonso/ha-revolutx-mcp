@@ -342,7 +342,9 @@
       },
       "direct_server_running": {
         "name": "Direct server running"
-      },
+      }
+    },
+    "switch": {
       "trading_enabled": {
         "name": "Trading enabled"
       }
